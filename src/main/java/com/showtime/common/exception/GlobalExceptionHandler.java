@@ -1,6 +1,7 @@
 package com.showtime.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -69,5 +70,29 @@ public class GlobalExceptionHandler {
                 Instant.now()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(er);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
+        log.warn("Conflict: {}", ex.getMessage());
+        ErrorResponse er = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                null,
+                Instant.now()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(er);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        ErrorResponse er = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                "Data integrity violation",
+                null,
+                Instant.now()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(er);
     }
 }

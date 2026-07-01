@@ -46,9 +46,7 @@ public class TheaterService {
     }
 
     public TheaterResponse getById(Long id) {
-        return theaterRepository.findById(id)
-                .map(this::mapToTheaterResponse)
-                .orElseThrow(() -> new TheaterNotFoundException(id));
+        return mapToTheaterResponse(getEntityById(id));
     }
 
     @Transactional
@@ -58,4 +56,11 @@ public class TheaterService {
         theater.setStatus(TheaterStatus.PERMANENTLY_CLOSED);
         theaterRepository.save(theater);
     }
+
+    public Theater getEntityById(Long id) {
+        return theaterRepository.findById(id)
+                .orElseThrow(() -> new TheaterNotFoundException(id));
+    }
+
+
 }

@@ -25,7 +25,7 @@ public class Theater {
     private String city;
 
     @Column(nullable = false, length = 100)
-    private String name; //name of the theatre like pvr saket
+    private String name; //name of the theater like pvr saket
 
     @Column(length = 255)
     private String address; //in case someone needs actual address ti visit
