@@ -24,5 +24,6 @@ public class Movie {
     private List<String> genre;
     private List<String> availableLanguages;
     private List<MovieFormat> availableFormats;
+    private MovieStatus status =  MovieStatus.AVAILABLE;
     private LocalDate releaseDate;
 }
