@@ -19,4 +19,5 @@ public class ScreenResponse {
     private ScreenType type;
     private Instant createdAt;
     private Instant updatedAt;
+    private int bufferMinutes;
 }

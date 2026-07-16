@@ -1,8 +1,6 @@
 package com.showtime.screen;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -23,4 +21,8 @@ public class CreateScreenRequest {
     private ScreenType type;
 
     private ScreenStatus status;
+
+    @NotNull(message = "buffer minutes is required")
+    @PositiveOrZero(message = "buffer minutes must be a positive number")
+    private Integer bufferMinutes;
 }

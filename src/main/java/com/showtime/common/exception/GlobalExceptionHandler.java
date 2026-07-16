@@ -95,4 +95,16 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(er);
     }
+
+    @ExceptionHandler(UnprocessableEntityException.class)
+    public ResponseEntity<ErrorResponse> handleUnprocessableEntity(UnprocessableEntityException ex) {
+        log.warn("Unprocessable entity: {}", ex.getMessage());
+        ErrorResponse er = new ErrorResponse(
+                HttpStatus.UNPROCESSABLE_CONTENT.value(),
+                ex.getMessage(),
+                null,
+                Instant.now()
+        );
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(er);
+    }
 }

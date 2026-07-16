@@ -24,6 +24,7 @@ public class ScreenService {
         screen.setTheater(theater);
         screen.setName(request.getName());
         screen.setType(request.getType());
+        screen.setBufferMinutes(request.getBufferMinutes());
         if(request.getStatus() != null) {
             screen.setStatus(request.getStatus());
         }
@@ -66,6 +67,7 @@ public class ScreenService {
         screenResponse.setTheaterCity(screen.getTheater().getCity());
         screenResponse.setCreatedAt(screen.getCreatedAt());
         screenResponse.setUpdatedAt(screen.getUpdatedAt());
+        screenResponse.setBufferMinutes(screen.getBufferMinutes());
         return screenResponse;
     }
 }

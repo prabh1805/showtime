@@ -9,5 +9,6 @@ public interface MovieMapper {
     MovieResponse toResponse(Movie movie);
 
     @Mapping(target = "movieId", ignore = true)
+    @Mapping(target = "status", ignore = true)
     Movie toEntity(CreateMovieRequest request);
 }

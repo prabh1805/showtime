@@ -26,4 +26,8 @@ public class MovieService {
     public MovieBatchResponse createBatch(BulkCreateMovieRequest request) {
         return movieBatchService.createBatch(request);
     }
+
+    public Movie getEntityById(String movieId) {
+        return movieRepository.findById(movieId).orElseThrow(() -> new MovieNotFoundException(movieId));
+    }
 }
