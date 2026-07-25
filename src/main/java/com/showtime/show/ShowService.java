@@ -7,6 +7,8 @@ import com.showtime.movie.MovieStatus;
 import com.showtime.screen.Screen;
 import com.showtime.screen.ScreenService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,11 +17,13 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ShowService {
     private final MovieService movieService;
     private final ScreenService  screenService;
     private final ShowRepository showRepository;
     private final ShowMapper showMapper;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public ShowResponse create(CreateShowRequest request) {
@@ -60,6 +64,12 @@ public class ShowService {
         show.setEndTime(endTime);
 
         Show showResult = showRepository.save(show);
+        applicationEventPublisher.publishEvent(new ShowCreatedEvent(showResult.getId()));
+        log.info("Show created successfully with ID: {}", showResult.getId());
         return showMapper.toResponse(showResult, movie, screen);
+    }
+
+    public Show getEntityById(Long id) {
+        return showRepository.findById(id).orElseThrow(() -> new ShowNotFoundException(id));
     }
 }

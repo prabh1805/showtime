@@ -62,4 +62,7 @@ public class Show {
     @LastModifiedDate
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @Column(nullable = false)
+    private boolean seatsReady = false;
 }

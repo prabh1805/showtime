@@ -12,6 +12,15 @@ import java.time.Instant;
 
 
 @Entity
+@Table(
+        name = "theater",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_theater_name_city",
+                        columnNames = {"name", "city"}
+                )
+        }
+)
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor
 @Getter

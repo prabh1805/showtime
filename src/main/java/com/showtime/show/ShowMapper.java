@@ -16,6 +16,7 @@ public interface ShowMapper {
     @Mapping(target = "status",  ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "seatsReady", ignore = true)
     Show toEntity(CreateShowRequest request);
 
     @Mapping(target = "movieTitle", source = "movie.title")
