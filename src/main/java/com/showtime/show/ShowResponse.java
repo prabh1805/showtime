@@ -23,4 +23,5 @@ public class ShowResponse {
     private MovieFormat format;
     private ShowStatus status;
     private Instant createdAt;
+    private boolean seatsReady;
 }
