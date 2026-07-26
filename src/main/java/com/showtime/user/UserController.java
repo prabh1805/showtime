@@ -26,4 +26,10 @@ public class UserController {
         LoginResponse loginResponse = userService.login(loginRequest);
         return ResponseEntity.ok(loginResponse);
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refreshAccessToken(@Valid @RequestBody RefreshRequest refreshRequest) {
+        LoginResponse loginResponse = userService.refreshAccessToken(refreshRequest);
+        return ResponseEntity.ok(loginResponse);
+    }
 }

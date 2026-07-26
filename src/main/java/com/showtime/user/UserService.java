@@ -1,10 +1,12 @@
 package com.showtime.user;
 
 import com.showtime.common.jwt.JwtService;
+import com.showtime.refreshtoken.RefreshResult;
 import com.showtime.refreshtoken.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +38,14 @@ public class UserService {
         }
         String accessToken = jwtService.generateToken(user);
         String refreshToken = refreshTokenService.issueToken(user);
+        return LoginResponse.builder().accessToken(accessToken).refreshToken(refreshToken).build();
+    }
+
+    @Transactional
+    public LoginResponse refreshAccessToken(RefreshRequest  refreshRequest) {
+        RefreshResult refreshResult = refreshTokenService.refreshAndRotate(refreshRequest.getRefreshToken());
+        String accessToken = jwtService.generateToken(refreshResult.user());
+        String refreshToken = refreshResult.refreshToken();
         return LoginResponse.builder().accessToken(accessToken).refreshToken(refreshToken).build();
     }
 }
