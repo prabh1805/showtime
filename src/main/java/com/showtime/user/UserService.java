@@ -1,21 +1,30 @@
 package com.showtime.user;
 
+import com.showtime.admin.CreateOwnerRequest;
+import com.showtime.admin.CreateOwnerResponse;
 import com.showtime.common.jwt.JwtService;
 import com.showtime.refreshtoken.RefreshResult;
 import com.showtime.refreshtoken.RefreshTokenService;
+import com.showtime.theater.CreateTheaterRequest;
+import com.showtime.theater.TheaterResponse;
+import com.showtime.theater.TheaterService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final TheaterService theaterService;
 
     public RegisterResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -47,5 +56,53 @@ public class UserService {
         String accessToken = jwtService.generateToken(refreshResult.user());
         String refreshToken = refreshResult.refreshToken();
         return LoginResponse.builder().accessToken(accessToken).refreshToken(refreshToken).build();
+    }
+
+    @Transactional
+    public CreateOwnerResponse createOwner(CreateOwnerRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new DuplicateEmailException(request.getEmail());
+        }
+
+        User owner = new User();
+        owner.setEmail(request.getEmail());
+        owner.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        owner.setRole(Role.OWNER);
+        userRepository.save(owner);
+
+        CreateTheaterRequest theaterRequest = new CreateTheaterRequest();
+        theaterRequest.setName(request.getTheaterName());
+        theaterRequest.setCity(request.getCity());
+        theaterRequest.setAddress(request.getAddress());
+
+
+        TheaterResponse theaterResponse = theaterService.create(theaterRequest, owner);
+
+        CreateOwnerResponse response = new CreateOwnerResponse();
+        response.setOwnerId(owner.getId());
+        response.setTheaterId(theaterResponse.getId());
+        return response;
+    }
+
+    @Transactional
+    public LoginResponse changePassword(ChangePasswordRequest request) {
+        String currUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = getEntityById(Long.valueOf(currUserId));
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            log.warn("Password change failed for user: {}", user.getEmail());
+            throw new InvalidPasswordException();
+        }
+        String newPassword = request.getNewPassword();
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        String accessToken = jwtService.generateToken(user);
+        String refreshToken = refreshTokenService.issueToken(user);
+        return LoginResponse.builder().accessToken(accessToken).refreshToken(refreshToken).build();
+    }
+
+    public User getEntityById(Long id) {
+        return  userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
     }
 }

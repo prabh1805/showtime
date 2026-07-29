@@ -1,5 +1,6 @@
 package com.showtime.theater;
 
+import com.showtime.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -42,6 +43,10 @@ public class Theater {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private TheaterStatus status = TheaterStatus.OPERATIONAL;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false, updatable = false)
+    private User owner;
 
     @CreatedDate
     private Instant createdAt;

@@ -15,6 +15,7 @@ public class TheaterResponse {
     private String name;
     private String address;
     private TheaterStatus status;
+    private Long ownerId;
     private Instant createdAt;
     private Instant updatedAt;
 }
