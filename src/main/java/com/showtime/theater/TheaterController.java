@@ -15,13 +15,6 @@ import org.springframework.web.bind.annotation.*;
 public class TheaterController {
     private final TheaterService theaterService;
 
-    @PostMapping
-    public ResponseEntity<TheaterResponse> createTheater(@RequestBody @Valid CreateTheaterRequest request) {
-        //if (true) throw new RuntimeException("Test fallback handler");
-        TheaterResponse response = theaterService.create(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
     @GetMapping
     public ResponseEntity<Page<TheaterResponse>> listTheaters(
             @RequestParam(required = false) String city,

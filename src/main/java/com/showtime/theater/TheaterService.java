@@ -1,6 +1,7 @@
 package com.showtime.theater;
 
 
+import com.showtime.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,20 +24,22 @@ public class TheaterService {
         theaterResponse.setStatus(theater.getStatus());
         theaterResponse.setCreatedAt(theater.getCreatedAt());
         theaterResponse.setUpdatedAt(theater.getUpdatedAt());
+        theaterResponse.setOwnerId(theater.getOwner().getId());
         return theaterResponse;
     }
     @Transactional
-    public TheaterResponse create(CreateTheaterRequest request) {
+    public TheaterResponse create(CreateTheaterRequest request, User owner) {
         Theater theater = new Theater();
         theater.setName(request.getName());
         theater.setAddress(request.getAddress());
         theater.setCity(request.getCity());
-        theater.setStatus(request.getStatus());
+        theater.setOwner(owner);
         Theater saved = theaterRepository.save(theater);
 
         return mapToTheaterResponse(saved);
     }
 
+    @Transactional
     public Page<TheaterResponse> listAll(String city, Pageable pageable) {
 
         if(city == null || city.isBlank()) {
@@ -45,6 +48,7 @@ public class TheaterService {
         return theaterRepository.findByCity(city, pageable).map(this::mapToTheaterResponse);
     }
 
+    @Transactional
     public TheaterResponse getById(Long id) {
         return mapToTheaterResponse(getEntityById(id));
     }

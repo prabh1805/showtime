@@ -11,4 +11,8 @@ public class RegisterResponse {
 
     private Long id;
     private String email;
+    private String firstName;
+    private String lastName;
+    private String mobileNumber;
+    private Role role;
 }

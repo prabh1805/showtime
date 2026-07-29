@@ -43,7 +43,7 @@ class TheaterControllerTest {
 
     @Test
     void createTheater_validRequest_returns201() throws Exception {
-        when(theaterService.create(any(CreateTheaterRequest.class))).thenReturn(sampleResponse());
+        when(theaterService.create(any(CreateTheaterRequest.class), owner)).thenReturn(sampleResponse());
 
         String body = """
                 {
@@ -63,7 +63,7 @@ class TheaterControllerTest {
                 .andExpect(jsonPath("$.name").value("PVR Saket"))
                 .andExpect(jsonPath("$.status").value("OPERATIONAL"));
 
-        verify(theaterService).create(any(CreateTheaterRequest.class));
+        verify(theaterService).create(any(CreateTheaterRequest.class), owner);
     }
 
     @Test

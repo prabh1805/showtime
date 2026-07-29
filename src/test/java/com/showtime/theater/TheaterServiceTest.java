@@ -58,7 +58,7 @@ class TheaterServiceTest {
     void create_savesTheaterAndReturnsMappedResponse() {
         when(theaterRepository.save(any(Theater.class))).thenReturn(theater);
 
-        TheaterResponse response = theaterService.create(validRequest());
+        TheaterResponse response = theaterService.create(validRequest(), owner);
 
         ArgumentCaptor<Theater> captor = ArgumentCaptor.forClass(Theater.class);
         verify(theaterRepository).save(captor.capture());
