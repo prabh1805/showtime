@@ -135,11 +135,94 @@ when register/login are actually built.
 
 - `/` — placeholder home (links to `/login` and `/register`, will become the
   real show-discovery homepage later)
-- `/register` — placeholder (real form not built yet)
-- `/login` — placeholder (real form not built yet)
+- `/register` — real Customer signup form (always creates role `CUSTOMER`,
+  per the backend)
+- `/login` — real login form for all roles; redirects to the matching
+  dashboard below based on the JWT's `role` claim
+- `/admin` — **ProtectedRoute** (`ADMIN` only) — real "create owner" form,
+  the only endpoint the backend actually enforces (`hasRole("ADMIN")`)
+- `/owner` — **ProtectedRoute** (`OWNER` only) — WIP placeholder (no
+  owner-scoped theater lookup endpoint exists yet)
+- `/staff` — **ProtectedRoute** (`STAFF` only) — WIP placeholder (no
+  add-staff endpoint exists yet)
+- `/customer` — **ProtectedRoute** (`CUSTOMER` only) — WIP placeholder
+  (future show-discovery home)
 - `*` — 404
 
+`ProtectedRoute` (`src/components/ProtectedRoute.jsx`) redirects
+unauthenticated visitors to `/login` and authenticated-wrong-role visitors to
+their own dashboard via `roleHomePath()` (`src/lib/roles.js`). Note: this is
+a client-side UX guard only — per `BACKEND_CONTRACT.md`'s "Known gaps"
+section, the backend itself only enforces auth on `/api/v1/admin/**`.
+
 ## Session log
+
+### 2026-07-30 — Session 2
+**Built:**
+- Read the Spring Boot backend's DTOs/controllers/exception handling
+  (external contract only, no service/repo/entity code) and generated
+  `BACKEND_CONTRACT.md` at the frontend root — now the source of truth for
+  API integration. Surfaced two real gaps worth remembering: (1)
+  `SecurityConfig` only enforces auth on `/api/v1/admin/**` — everything
+  else is `permitAll()` regardless of `SecurityPaths.PUBLIC_PATHS`; (2)
+  `CreateTheaterRequest`/`ChangePasswordRequest` DTOs exist with service
+  methods behind them but no controller wires them up yet.
+- Built real Register (`src/pages/Register.jsx`) and Login
+  (`src/pages/Login.jsx`) forms, replacing the placeholders.
+- Built `AuthContext`/`AuthProvider`/`useAuth()` (`src/context/AuthContext.jsx`)
+  per the project's documented token strategy: access token in-memory only,
+  refresh token in `localStorage`, silent re-auth via `/refresh` on app load.
+- Added role-based routing: `/admin` (real "create owner" form —
+  `src/pages/AdminDashboard.jsx`, the only backend-enforced endpoint) plus
+  WIP placeholders for `/owner`, `/staff`, `/customer`
+  (`OwnerDashboard.jsx`/`StaffDashboard.jsx`/`CustomerDashboard.jsx`), all
+  gated by the new `ProtectedRoute` component
+  (`src/components/ProtectedRoute.jsx`).
+- Added shared form UI (`src/components/FormField.jsx`, `Button.jsx`,
+  `FormError.jsx`), client-side validators mirroring backend rules
+  (`src/lib/validators.js`), hand-rolled JWT payload decoding
+  (`src/lib/jwt.js` — no new dependency), and role→path mapping
+  (`src/lib/roles.js`).
+- New API wrappers: `src/api/auth.js` (register/login/refresh) and
+  `src/api/admin.js` (`createOwner` — first real use of Authorization-header
+  injection via `apiFetch`'s existing `options.headers` passthrough;
+  `client.js` itself was not modified).
+- Per working-style preference, all JS *logic* (function bodies in
+  `AuthContext`, validators, API wrapper internals, form submit handlers) was
+  left as signatures + JSDoc doc-comments (`// TODO: ...`) for hand
+  implementation; JSX markup/Tailwind styling was delivered in full.
+  `npm run build` succeeds as-is; `npm run lint` currently shows expected
+  `no-unused-vars` errors on the TODO'd files (will clear once implemented)
+  plus one real, pre-existing-by-design finding: `AuthContext.jsx` exports
+  both a component (`AuthProvider`) and a hook (`useAuth`) from one file,
+  which trips `react-refresh/only-export-components` — a deliberate
+  colocation choice (see plan), not a bug; split into a `hooks/` dir later
+  if it becomes annoying.
+
+**Key decisions:**
+- Owner dashboard is a WIP stub this round, not a real "my theater" view —
+  no owner-scoped theater lookup endpoint exists on the backend
+  (`GET /api/v1/theaters` only filters by `city`, and login returns no
+  `theaterId`).
+- Self-registration only ever produces `CUSTOMER` accounts; Owner accounts
+  only come from the Admin-only create-owner endpoint; Staff has no creation
+  path anywhere yet. Change-password and create-theater UI were explicitly
+  left out of scope (DTOs exist backend-side but no controller wires them up).
+- Route guarding (`ProtectedRoute`) is a client-side UX layer only — it does
+  not mirror real backend enforcement, which right now only covers
+  `/api/v1/admin/**`.
+
+**Next:**
+- Implement the `// TODO:` logic left in: `src/context/AuthContext.jsx`,
+  `src/lib/jwt.js`, `src/lib/validators.js`, `src/api/auth.js`,
+  `src/api/admin.js`, `src/pages/Register.jsx`, `src/pages/Login.jsx`,
+  `src/pages/AdminDashboard.jsx` — the app won't actually authenticate until
+  these are filled in (route guards will show "Checking your session…"
+  indefinitely until `AuthContext`'s refresh-on-mount logic is implemented).
+- End-to-end verify per `BACKEND_CONTRACT.md`/the approved plan once logic is
+  filled in: Customer register→login→`/customer`, reload-persists-session,
+  logout, role-mismatch redirects, and the Admin create-owner flow against
+  the user's existing seeded admin account.
 
 ### 2026-07-30 — Session 1
 **Built:**
