@@ -59,6 +59,11 @@ public class UserService {
     }
 
     @Transactional
+    public void logout(RefreshRequest refreshRequest) {
+        refreshTokenService.revokeToken(refreshRequest.getRefreshToken());
+    }
+
+    @Transactional
     public CreateOwnerResponse createOwner(CreateOwnerRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateEmailException(request.getEmail());
@@ -101,8 +106,31 @@ public class UserService {
         return LoginResponse.builder().accessToken(accessToken).refreshToken(refreshToken).build();
     }
 
+    @Transactional
+    public RegisterResponse updateUserDetails(UpdateProfileRequest request) {
+        String currUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = getEntityById(Long.valueOf(currUserId));
+        userMapper.updateUserFromDto(request, user);
+        userRepository.save(user);
+        return userMapper.toResponse(user);
+    }
+
+    public RegisterResponse getMe(){
+        String currUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = getEntityById(Long.valueOf(currUserId));
+        return userMapper.toResponse(user);
+    }
+
     public User getEntityById(Long id) {
         return  userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
+    }
+
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    public User save(User user) {
+        return userRepository.save(user);
     }
 }

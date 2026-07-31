@@ -28,6 +28,7 @@ public class RegisterRequest {
     @Size(max = 100, message = "Last name must be at most 100 characters long")
     private String lastName;
 
+    @Size(max = 10)
     private String mobileNumber;
 
 }

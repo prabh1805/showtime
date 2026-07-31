@@ -67,6 +67,20 @@ public class RefreshTokenService {
         return new RefreshResult(user, newRawToken);
     }
 
+    public void revokeToken(String token) {
+        String hashToken;
+        try {
+            hashToken = generateHashToken(token);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error generating token hash", e);
+        }
+        refreshTokenRepository.findByTokenHash(hashToken)
+                .ifPresent(existing -> {
+                    existing.setRevoked(true);
+                    refreshTokenRepository.save(existing);
+                });
+    }
+
     private String generateRawToken(){
         SecureRandom random = new SecureRandom();
         byte[] bytes = new byte[32];
