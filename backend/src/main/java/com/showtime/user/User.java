@@ -32,6 +32,7 @@ public class User {
     @Column(nullable = false, length = 100)
     private String lastName;
 
+    @Column(length = 10)
     private String mobileNumber;
 
     @CreatedDate

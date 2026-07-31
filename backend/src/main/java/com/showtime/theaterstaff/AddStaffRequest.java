@@ -1,14 +1,17 @@
-package com.showtime.user;
+package com.showtime.theaterstaff;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
-@NoArgsConstructor
-public class RegisterRequest {
+@RequiredArgsConstructor
+public class AddStaffRequest {
     @NotBlank(message = "Email is required")
     @Size(max = 255, message = "Email must be at most 255 characters long")
     @Email(message = "Email must be a valid email address")
@@ -16,7 +19,7 @@ public class RegisterRequest {
 
     @NotBlank(message = "Password is required")
     @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-           message = "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character")
+            message = "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character")
     private String password;
 
 
@@ -28,7 +31,6 @@ public class RegisterRequest {
     @Size(max = 100, message = "Last name must be at most 100 characters long")
     private String lastName;
 
-    @Size(max = 10)
     private String mobileNumber;
 
 }

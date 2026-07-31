@@ -1,8 +1,6 @@
 package com.showtime.user;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface UserMapper {
@@ -22,4 +20,13 @@ public interface UserMapper {
     @Mapping(target = "mobileNumber", source = "user.mobileNumber")
     @Mapping(target = "role", source = "user.role")
     RegisterResponse toResponse(User user);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "email", ignore = true)
+    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "role", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    void updateUserFromDto(UpdateProfileRequest request, @MappingTarget User user);
 }
