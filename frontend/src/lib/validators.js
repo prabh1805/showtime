@@ -18,9 +18,16 @@ export const PASSWORD_REQUIREMENTS_MESSAGE =
  * @returns {string | undefined} an error message, or undefined if valid.
  */
 export function validateEmail(email) {
-  // TODO: check non-empty, then a reasonable email shape (e.g. a simple
-  // regex like /^[^\s@]+@[^\s@]+\.[^\s@]+$/ — doesn't need to be exhaustive,
-  // the backend's @Email annotation is the real source of truth).
+  if (email.trim() === "") {
+    return "Email is required.";
+  }
+  if (email.length > 255) {
+    return "Email must be at most 255 characters.";
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return "Enter a valid email address.";
+  }
+  return undefined;
 }
 
 /**
@@ -30,8 +37,13 @@ export function validateEmail(email) {
  * @returns {string | undefined} an error message, or undefined if valid.
  */
 export function validatePassword(password) {
-  // TODO: check non-empty, then test against PASSWORD_PATTERN; on failure
-  // return PASSWORD_REQUIREMENTS_MESSAGE (or a shorter variant).
+  if (password.trim() === "") {
+    return "Password is required.";
+  }
+  if (!PASSWORD_PATTERN.test(password)) {
+    return PASSWORD_REQUIREMENTS_MESSAGE;
+  }
+  return undefined;
 }
 
 /**
@@ -42,7 +54,7 @@ export function validatePassword(password) {
  * @returns {string | undefined} an error message, or undefined if valid.
  */
 export function validateRequired(value, fieldLabel) {
-  // TODO: return `${fieldLabel} is required.` when value is empty/whitespace-only.
+  return value.trim() === "" ? `${fieldLabel} is required.` : undefined;
 }
 
 /**
@@ -54,6 +66,11 @@ export function validateRequired(value, fieldLabel) {
  * @returns {Record<string, string>}
  */
 export function mapFieldErrors(fieldErrors) {
-  // TODO: return {} if fieldErrors is falsy/empty; otherwise reduce the
-  // array into an object keyed by `field`.
+  if (!fieldErrors) {
+    return {};
+  }
+  return fieldErrors.reduce((acc, error) => {
+    acc[error.field] = error.message;
+    return acc;
+  }, {});
 }
