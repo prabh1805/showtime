@@ -54,10 +54,21 @@ export function AuthProvider({ children }) {
    * @throws {import("../api/client").ApiError} propagated for the Login page to render.
    */
   async function login(email, password) {
-    // TODO: const { accessToken, refreshToken } = await loginRequest({ email, password });
-    // decode accessToken with decodeJwt -> { sub, role }; localStorage.setItem
-    // the refreshToken; setAccessToken/setRole/setUserId/setStatus("authenticated");
-    // return { role, userId }.
+    const { accessToken, refreshToken } = await loginRequest({
+      email,
+      password,
+    });
+    const decoded = decodeJwt(accessToken);
+    if (!decoded) {
+      throw new Error("Failed to decode access token");
+    }
+    const { sub, role } = decoded;
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    setAccessToken(accessToken);
+    setRole(role);
+    setUserId(sub);
+    setStatus("authenticated");
+    return { role, userId: sub };
   }
 
   /**
@@ -65,8 +76,11 @@ export function AuthProvider({ children }) {
    * token. No backend call — there's no logout/blacklist endpoint.
    */
   function logout() {
-    // TODO: localStorage.removeItem(REFRESH_TOKEN_KEY); reset all state
-    // (accessToken/role/userId to null, status to "unauthenticated").
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    setAccessToken(null);
+    setRole(null);
+    setUserId(null);
+    setStatus("unauthenticated");
   }
 
   const value = { accessToken, role, userId, status, login, logout };

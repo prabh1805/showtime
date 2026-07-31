@@ -9,6 +9,19 @@
  */
 export function decodeJwt(token) {
   // TODO: split token on ".", base64url-decode the payload segment
-  // (replace "-"->"+", "_"->"/", pad with "="), atob() + JSON.parse().
-  // Wrap in try/catch and return null on any failure.
+  const [_header, payload, _signature] = token.split(".");
+
+  const base64 = payload.replaceAll("-", "+").replaceAll("_", "/");
+
+  const rem = base64.length % 4;
+  let padded = base64;
+  if (rem > 0) {
+    padded += "=".repeat(4 - rem);
+  }
+  try {
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
 }

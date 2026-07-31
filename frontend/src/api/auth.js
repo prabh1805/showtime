@@ -9,7 +9,10 @@ import { apiFetch } from "./client";
  * @throws {import("./client").ApiError} 400 (validation) or 409 (duplicate email).
  */
 export function register(payload) {
-  // TODO: return apiFetch("/api/v1/users/register", { method: "POST", body: JSON.stringify(payload) });
+  return apiFetch("/api/v1/users/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 /**
@@ -20,7 +23,10 @@ export function register(payload) {
  * @throws {import("./client").ApiError} 400 (validation) or 401 (bad credentials).
  */
 export function login(payload) {
-  // TODO: same pattern as register(), path "/api/v1/users/login".
+  return apiFetch("/api/v1/users/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 /**
@@ -32,5 +38,8 @@ export function login(payload) {
  * @throws {import("./client").ApiError} 400 (validation) or 401 (invalid/expired token).
  */
 export function refresh(refreshToken) {
-  // TODO: apiFetch("/api/v1/users/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) });
+  return apiFetch("/api/v1/users/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+  });
 }

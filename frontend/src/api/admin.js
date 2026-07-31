@@ -20,4 +20,11 @@ export function createOwner(payload, accessToken) {
   //   headers: { Authorization: `Bearer ${accessToken}` },
   //   body: JSON.stringify(payload),
   // });
+  const { address, ...rest } = payload;
+  const body = { ...rest, ...(address ? { address } : {}) };
+  return apiFetch("/api/v1/admin/owner", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(body),
+  });
 }
