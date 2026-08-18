@@ -12,6 +12,15 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class CreateOwnerRequest {
+
+    @NotBlank(message = "First name is required")
+    @Size(max = 50, message = "First name must be at most 50 characters long")
+    private String firstName;
+
+    @NotBlank(message = "Last name is required")
+    @Size(max = 100, message = "Last name must be at most 100 characters long")
+    private String lastName;
+
     @NotBlank(message = "Email is required")
     @Size(max = 255, message = "Email must be at most 255 characters long")
     @Email(message = "Email must be a valid email address")

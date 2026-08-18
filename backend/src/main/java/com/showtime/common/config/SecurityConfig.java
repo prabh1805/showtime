@@ -25,11 +25,22 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .authorizeHttpRequests(auth -> auth
+                        // Public — no login required
+                        .requestMatchers(
+                                "/api/v1/users/register",
+                                "/api/v1/users/login",
+                                "/api/v1/users/refresh"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
 
-                .authorizeHttpRequests(auth ->
-                        auth
-                                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .anyRequest().permitAll()
+                        // Admin-only — coarse role check is sufficient, no per-resource context needed
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/theaters/*").hasRole("ADMIN")
+
+                        // Everything else must at least be logged in;
+                        // fine-grained ownership/staff checks happen inside each service
+                        .anyRequest().authenticated()
                 )
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -37,7 +48,6 @@ public class SecurityConfig {
 
         return http.build();
     }
-
     @Value("${cors.allowed-origin}")
     private String allowedOrigin;
 

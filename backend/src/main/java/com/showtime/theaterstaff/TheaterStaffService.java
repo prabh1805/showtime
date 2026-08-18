@@ -24,24 +24,7 @@ public class TheaterStaffService {
     public AddStaffResponse addStaff(Long theaterId, AddStaffRequest request) {
         Theater theater = theaterService.getEntityById(theaterId);
 
-        // 1. Authorize the caller: must be owner, or active staff at THIS theater
-        String currUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User callerUser = userService.getEntityById(Long.valueOf(currUserId));
-
-        var authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
-        boolean isOwner = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_OWNER"));
-        boolean isStaff = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_STAFF"));
-
-        boolean isOwnerRight = theater.getOwner().getId().equals(callerUser.getId());
-        boolean callerIsActiveStaffHere = theaterStaffRepository
-                .existsByUserAndTheaterAndStatus(callerUser, theater, EmploymentStatus.WORKING);
-
-        if ((!isStaff && !isOwner)
-                || (isOwner && !isOwnerRight)
-                || (isStaff && !callerIsActiveStaffHere)) {
-            throw new UnauthorizedTheaterAccessException(theater.getName());
-        }
-
+        assertCallerCanManage(theater,"manage staff");
         // 2. Duplicate-email check for the NEW person being added
         if (userService.existsByEmail(request.getEmail())) {
             throw new DuplicateEmailException(request.getEmail());
@@ -69,5 +52,26 @@ public class TheaterStaffService {
                 .staffRole(newUser.getRole())
                 .staffEmploymentStatus(theaterStaff.getStatus())
                 .build();
+    }
+
+    public void assertCallerCanManage(Theater theater, String action) {
+        // 1. Authorize the caller: must be owner, or active staff at THIS theater
+        String currUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User callerUser = userService.getEntityById(Long.valueOf(currUserId));
+
+        var authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+        boolean isOwner = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_OWNER"));
+        boolean isStaff = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_STAFF"));
+
+        boolean isOwnerRight = theater.getOwner().getId().equals(callerUser.getId());
+        boolean callerIsActiveStaffHere = theaterStaffRepository
+                .existsByUserAndTheaterAndStatus(callerUser, theater, EmploymentStatus.WORKING);
+
+        if ((!isStaff && !isOwner)
+                || (isOwner && !isOwnerRight)
+                || (isStaff && !callerIsActiveStaffHere)) {
+            throw new UnauthorizedTheaterAccessException(action,theater.getName());
+        }
+
     }
 }

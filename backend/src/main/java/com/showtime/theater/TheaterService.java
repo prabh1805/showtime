@@ -30,13 +30,14 @@ public class TheaterService {
     @Transactional
     public TheaterResponse create(CreateTheaterRequest request, User owner) {
         Theater theater = new Theater();
-        theater.setName(request.getName());
+        theater.setName(request.getTheaterName());
         theater.setAddress(request.getAddress());
         theater.setCity(request.getCity());
         theater.setOwner(owner);
-        Theater saved = theaterRepository.save(theater);
 
-        return mapToTheaterResponse(saved);
+        createTheater(theater, owner);
+
+        return mapToTheaterResponse(theater);
     }
 
     @Transactional
@@ -66,5 +67,9 @@ public class TheaterService {
                 .orElseThrow(() -> new TheaterNotFoundException(id));
     }
 
+    public Theater createTheater(Theater theater, User owner) {
+        theater.setOwner(owner);
+        return theaterRepository.save(theater);
+    }
 
 }

@@ -12,7 +12,14 @@ import lombok.Setter;
 @Getter
 @Setter
 public class CreateTheaterRequest {
+    @NotBlank(message = "city is required")
+    @Size(max = 50, message = "city must be at most 50 characters")
     private String city;
-    private String name;
+
+    @NotBlank(message = "theater name is required")
+    @Size(max = 100, message = "theater name must be at most 100 characters")
+    private String theaterName;
+
+    @Size(min = 1, max = 255, message = "address must be 1 to 255 characters")
     private String address;
 }

@@ -1,9 +1,12 @@
 package com.showtime.screen;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.List;
 
 @NoArgsConstructor
 @Getter
@@ -25,4 +28,8 @@ public class CreateScreenRequest {
     @NotNull(message = "buffer minutes is required")
     @PositiveOrZero(message = "buffer minutes must be a positive number")
     private Integer bufferMinutes;
+
+    @NotEmpty(message = "row segment request cannot be empty")
+    @Valid
+    private List<RowSegmentRequest>  rowSegmentRequests;
 }

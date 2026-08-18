@@ -27,21 +27,23 @@ public class UserService {
     private final TheaterService theaterService;
 
     public RegisterResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateEmailException(request.getEmail());
-        }
-
-        User user = userMapper.toEntity(request);
-        String hashedPassword = passwordEncoder.encode(request.getPassword());
-        user.setPasswordHash(hashedPassword);
-        userRepository.save(user);
-
-        return userMapper.toResponse(user);
+        User userReq = new User();
+        userReq.setEmail(request.getEmail());
+        userReq.setFirstName(request.getFirstName());
+        userReq.setLastName(request.getLastName());
+        userReq.setMobileNumber(request.getMobileNumber());
+        User savedUser = createUser(userReq, request.getPassword());
+        return userMapper.toResponse(savedUser);
     }
 
     public LoginResponse login(LoginRequest request) {
+        System.out.println("Email received: [" + request.getEmail() + "]");
+        System.out.println("Password received: [" + request.getPassword() + "]");
+
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new InvalidUserCredentialsException(request.getEmail()));
+
+        System.out.println("Hash from DB: [" + user.getPasswordHash() + "]");
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new InvalidUserCredentialsException(request.getEmail());
         }
@@ -63,31 +65,6 @@ public class UserService {
         refreshTokenService.revokeToken(refreshRequest.getRefreshToken());
     }
 
-    @Transactional
-    public CreateOwnerResponse createOwner(CreateOwnerRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateEmailException(request.getEmail());
-        }
-
-        User owner = new User();
-        owner.setEmail(request.getEmail());
-        owner.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        owner.setRole(Role.OWNER);
-        userRepository.save(owner);
-
-        CreateTheaterRequest theaterRequest = new CreateTheaterRequest();
-        theaterRequest.setName(request.getTheaterName());
-        theaterRequest.setCity(request.getCity());
-        theaterRequest.setAddress(request.getAddress());
-
-
-        TheaterResponse theaterResponse = theaterService.create(theaterRequest, owner);
-
-        CreateOwnerResponse response = new CreateOwnerResponse();
-        response.setOwnerId(owner.getId());
-        response.setTheaterId(theaterResponse.getId());
-        return response;
-    }
 
     @Transactional
     public LoginResponse changePassword(ChangePasswordRequest request) {
@@ -124,6 +101,14 @@ public class UserService {
     public User getEntityById(Long id) {
         return  userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
+    }
+
+    public User createUser(User user, String rawPassword) {
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new DuplicateEmailException(user.getEmail());
+        }
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        return userRepository.save(user);
     }
 
     public boolean existsByEmail(String email) {

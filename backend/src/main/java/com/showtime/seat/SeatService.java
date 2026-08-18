@@ -3,14 +3,18 @@ package com.showtime.seat;
 import com.showtime.screen.Screen;
 import com.showtime.screen.ScreenService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class SeatService {
+    @Lazy
     private final ScreenService screenService;
     private final SeatRepository seatRepository;
 
@@ -55,6 +59,10 @@ public class SeatService {
         Seat seat = getEntityById(id);
         seat.setStatus(SeatStatus.REMOVED);
         seatRepository.save(seat);
+    }
+
+    public void createSeats(List<Seat> seats){
+        seatRepository.saveAll(seats);
     }
     public Seat getEntityById(Long id) {
         return seatRepository.findById(id)
