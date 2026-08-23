@@ -40,6 +40,13 @@ fresh addition. See root `.gitignore` for OS-cruft-only rules; each of
   contents back at me. If context is getting large and quality is dropping,
   say so directly and recommend starting a fresh session — this file should
   have enough for a new session to pick up cleanly.
+- Follow good design principles when writing code: single-responsibility
+  files/components, no giant do-everything files. If a component/page is
+  accumulating unrelated concerns or growing large, extract the reusable
+  pieces into their own files (e.g. `Modal.jsx`, `AppHeader.jsx`,
+  `ProfileMenu.jsx` as precedents) instead of piling more into one file.
+  Reuse existing components/utilities over duplicating logic. Keep functions
+  focused — one clear purpose each.
 - Confirm before destructive/high-blast-radius actions (repo restructuring,
   force pushes, deleting things). Ask when a decision is genuinely mine to make.
 
@@ -156,6 +163,190 @@ a client-side UX guard only — per `BACKEND_CONTRACT.md`'s "Known gaps"
 section, the backend itself only enforces auth on `/api/v1/admin/**`.
 
 ## Session log
+
+### 2026-08-23 — Session 4
+**Built:**
+- Admin dashboard fixes/polish: create-owner form now resets `touched`/
+  `errors` on success (was re-showing validation errors on an empty form
+  after a successful submit); the theaters table now refreshes after a
+  successful create-owner; added a rows-per-page selector to
+  `TheatersPanel.jsx`; the create-owner form moved from an always-visible
+  card into a new reusable `Modal.jsx` (Escape/backdrop/×-close, blocks
+  closing mid-submit) opened via a button.
+- New shared header: `AppHeader.jsx` (full-bleed, Logo + `ProfileMenu.jsx`
+  avatar/dropdown showing the signed-in user's name — `AuthContext.jsx` now
+  also loads `firstName`/`lastName`/`mobileNumber` via a new
+  `api/users.js#getMe` call, fire-and-forget after login/session-restore).
+  New `/profile` route (`pages/Profile.jsx`, read-only for now, open to all
+  roles). `AdminDashboard.jsx` adopted `AppHeader`.
+- **Screens & Seats management (Owner dashboard)** — the big one. Backend
+  had a surprisingly complete `screen`/`seat` domain already (row-segment
+  bulk seat creation, enums, soft-delete) but was missing: an owner-scoped
+  theater lookup, any way to add seats to an *existing* screen, screen/seat
+  edit endpoints, and — a real gap — `SeatService.create()`/`softDelete()`
+  and `ScreenService.softDelete()` had **no authorization check at all**
+  (any authenticated user, any role, could create/delete seats or screens
+  on any theater). Added, all reusing the existing
+  `TheaterStaffService.assertCallerCanManage()` primitive:
+  - `GET /api/v1/theaters/me` (owner + active-staff theaters, deduped).
+  - `POST /api/v1/screens/{id}/seats` (append more row-segments to an
+    existing screen; overlap-checks against *persisted* seats too, not
+    just the new batch).
+  - `PATCH /api/v1/screens/{id}` and `PATCH /api/v1/seats/{id}` (partial
+    update).
+  - Fixed the three missing authorization checks above.
+  - No entity/schema changes anywhere — seat position is still just
+    `row` + `number`, deliberately (see Key decisions).
+- Frontend: `api/theaters.js`, `api/screens.js`, `api/seats.js`;
+  `SeatGrid.jsx` (pure presentational seat-map diagram — groups seats by
+  row, renders gaps for any missing seat number, color-codes by
+  `SeatType`); `ScreenLayoutBuilder.jsx` (repeatable row-segment form +
+  live `SeatGrid` preview, reused for both "create screen" and "add more
+  rows"); `ScreensManager.jsx` (screens list + create-screen modal) and
+  `ScreenDetail.jsx` (interactive seat-map management: click a seat to mark
+  broken/available/remove, edit screen, add rows, delete screen) —
+  `pages/OwnerDashboard.jsx` rewritten from its WIP stub to the real thing.
+- Small consolidation: extracted `lib/format.js#formatEnumLabel` (was
+  duplicated as `formatStatus` in `TheatersPanel.jsx` and `formatRole` in
+  `ProfileMenu.jsx`/`Profile.jsx`).
+- Added a "no giant do-everything files, reuse over duplicate" preference
+  to this file's Working preferences section, at the user's request.
+- `TheatersPanel.jsx`/`ScreensManager.jsx`/`ScreenDetail.jsx` now call
+  `useAuth()` directly for `accessToken` instead of receiving it as a prop
+  from their parent page — matches how `ProfileMenu`/`AppHeader` already
+  worked, decided after the user asked why it wasn't already that way.
+- `Modal.jsx` gained a `maxWidthClassName` prop (default `max-w-md`) so
+  content-heavy modals aren't stuck at the original fixed width — the
+  screens/seats modals now use `max-w-4xl` (Add screen) and `max-w-5xl`
+  (Manage seats).
+- Real bugs found via the user's own manual testing/screenshots and fixed
+  in `SeatGrid.jsx`:
+  - Each row rendered its cells starting from seat number 1 always, so a
+    row whose real seats started later (e.g. 5) showed a run of misleading
+    blank cells first. Now starts from that row's own actual minimum seat
+    number, and the row label shows a small start-number hint (only when
+    it isn't 1, to avoid "A" + "1" visually merging into what reads like a
+    single seat code "A1").
+  - The scrollable row container used `items-center` on a flex column, so
+    any row wider than the modal opened **scrolled to the middle of its
+    content**, not the start — hiding the row label and seat 1 entirely.
+    Fixed by using `mx-auto` on a block element inside the scroll
+    container instead (degrades to left-aligned once content overflows,
+    rather than a flex-centered scroll anchor).
+  - Two Tailwind v4 renames caught by the editor's lint (`bg-gradient-to-b`
+    → `bg-linear-to-b`, `!class` → `class!`) — noted here since they're
+    easy to reach for out of v3 habit.
+- `ScreenLayoutBuilder.jsx` reworked twice based on user feedback into its
+  current form: clicking "+ Add row" now shows a **"Same seat numbers as
+  previous row"** checkbox (checked by default) instead of a fully
+  pre-filled duplicate form — checking it hides the Seat type/Start #/Count
+  fields entirely and just reuses the row above's numbers, so you only type
+  the row letter. Also fixed a real correctness bug in this feature: it
+  originally approximated a referenced row as one `min-to-max` range, which
+  silently **filled in aisle gaps as real seats** when a row had internal
+  gaps (any row built from multiple segments, like the very rows this
+  builder itself creates). Now every row is modeled as an array of actual
+  contiguous segments, and "same as previous" copies that exact segment
+  list — gaps stay gaps. This also now works for the *first* row when
+  appending to an existing screen (`ScreenDetail.jsx` computes the screen's
+  real last-saved row, segmented the same way, and passes it in as
+  `previousRow`) — previously only rows added within the same builder
+  session could reference each other.
+- Confirmed (not a bug): after login, landing on `/profile` instead of a
+  role dashboard is `Login.jsx`'s intentional `location.state.from`
+  deep-link behavior — it returns you to whatever page redirected you to
+  `/login`, falling back to `roleHomePath(role)` only when there isn't one.
+
+**Key decisions:**
+- Seat-map visualization deliberately uses **no new backend fields**: a
+  seat's existing `row` (letter) + `number` (int) *is* its grid position —
+  any number missing from a row's persisted seats renders as a blank aisle
+  gap. This reuses the backend's existing row-segment DSL as-is for both
+  creation and display, at the cost of not supporting true irregular/curved
+  layouts (fine for now — matches BookMyShow-style rectangular seat maps).
+- Screens/Seats management lives on the **Owner dashboard**, not folded
+  into Admin — Admin still has zero ability to manage a theater's screens
+  (by design; `assertCallerCanManage` intentionally excludes ADMIN).
+- Builder UX is a form with a live diagram preview, not a click-to-paint
+  grid — faster to build, still genuinely visual.
+- Destructive screen delete uses a plain `window.confirm` rather than a new
+  confirm-dialog component — one use site, didn't justify the abstraction.
+
+**Known bad data:** a test theater's "Screen3", row D has only seats 1–10
+persisted instead of the full multi-segment pattern rows A/B/C have — built
+via "same as previous row" before the segment-copying fix above landed, so
+it's stale data, not a currently-reproducible bug. Delete and recreate that
+screen rather than trying to patch row D by hand.
+
+**Next:**
+- Backend: no tests were added for the new endpoints/authorization fixes —
+  worth adding before this goes further, especially around the
+  authorization-gap fixes (those are exactly the kind of regression that's
+  easy to silently reintroduce).
+- Frontend: the Owner flow (create screen → see diagram → mark seat broken
+  → add rows → edit → delete) has now been manually exercised by the user
+  and several real bugs it surfaced are fixed (see above) — worth one more
+  full pass end-to-end now that they're in, including the "same as
+  previous row" checkbox on a screen with multi-segment rows.
+- `StaffDashboard.jsx` is still a stub even though `GET /api/v1/theaters/me`
+  already supports STAFF too — `ScreensManager`/`ScreenDetail` should be
+  directly reusable there whenever that page gets built.
+- The pre-existing `react-hooks/set-state-in-effect` lint error in
+  `CitySelect.jsx` (present before this session) is still unfixed.
+- This session repeatedly hit Vite dev-server/browser staleness while
+  iterating live (code confirmed correct on disk and via direct `curl` to
+  the dev server, but the browser kept showing old behavior) — if this
+  recurs, a full dev-server restart plus an incognito window is the
+  reliable fix; a plain hard refresh wasn't always enough.
+
+### 2026-08-23 — Session 3 (in progress)
+**Built:**
+- UI sizing/responsiveness pass on `Home.jsx`, `Login.jsx`, `Register.jsx`,
+  and the shared `Logo.jsx`/`FormField.jsx`/`Button.jsx` components — text
+  and the logo icon were reading too small, especially on phone-width
+  screens. Bumped base (mobile-first) font sizes and touch-target padding
+  throughout (headings `text-2xl`→`text-3xl`, body/labels `text-sm`→
+  `text-base`, logo icon/wordmark scaled up with an `sm:` step, Home's CTA
+  buttons stack full-width on mobile). Pure JSX/Tailwind styling — no JS
+  logic touched.
+
+**Status update (auth logic, implemented outside this session):**
+- The Customer login flow is now fully implemented and functional
+  end-to-end: `AuthContext.jsx`, `lib/jwt.js`, `lib/validators.js`,
+  `api/auth.js`, and `pages/Login.jsx` have no remaining `// TODO`s (one
+  stale TODO comment survives above already-implemented code in
+  `jwt.js:11` — harmless, just a leftover comment, worth deleting next
+  pass). Auth context was also split — `AuthContext.jsx` (provider only),
+  `context/AuthContextValue.jsx` (the `createContext` call), and
+  `context/useAuth.js` (the hook) — resolving the
+  `react-refresh/only-export-components` lint finding flagged in Session 2
+  by separating component/context/hook into their own files instead of
+  colocating.
+- `Register.jsx` and `pages/AdminDashboard.jsx` still have their `// TODO`
+  logic stubs unimplemented (`handleChange`, `validate`, `handleSubmit` all
+  no-op), and `api/admin.js`'s `createOwner` body is still a TODO — so
+  registration and the admin create-owner flow don't work yet even though
+  their forms render.
+- Working tree currently has uncommitted changes across
+  `ProtectedRoute.jsx`, `AuthContext.jsx`, `roles.js`, `AdminDashboard.jsx`,
+  `CustomerDashboard.jsx`, `Login.jsx`, `OwnerDashboard.jsx`, `Register.jsx`,
+  `StaffDashboard.jsx`, plus new untracked `AuthContextValue.jsx`/
+  `useAuth.js` — none of this has been committed yet.
+
+**Next:**
+- Finish `Register.jsx` and `AdminDashboard.jsx`'s TODO'd logic + wire up
+  `api/admin.js`'s `createOwner` body, so registration and the admin
+  create-owner flow actually work (forms currently render but submit does
+  nothing).
+- Delete the stale TODO comment at `lib/jwt.js:11`.
+- End-to-end verify the now-working login flow in a browser (not just
+  build-checked): login→`/customer` redirect, reload-persists-session,
+  logout, role-mismatch redirects — per the Session 2 plan, now that the
+  blocking logic is actually filled in.
+- Decide on committing the in-progress auth work once Register/Admin are
+  finished, per this file's "confirm before destructive/high-blast-radius
+  actions" preference — ask before committing since it wasn't explicitly
+  requested yet.
 
 ### 2026-07-30 — Session 2
 **Built:**

@@ -1,103 +1,123 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { refresh } from "../api/auth";
 import { decodeJwt } from "../lib/jwt";
-import { login as loginRequest, refresh as refreshRequest } from "../api/auth";
+import { login as loginRequest } from "../api/auth";
+import { getMe } from "../api/users";
+import { AuthContext } from "./AuthContextValue";
+import { ApiError } from "../api/client";
 
-const REFRESH_TOKEN_KEY = "showtime_refresh_token";
-
-const AuthContext = createContext(null);
-
-/**
- * Provides auth state to the whole app: the in-memory access token, the
- * decoded role/userId, and a status flag so route guards can distinguish
- * "haven't checked for a session yet" from "checked, there isn't one".
- *
- * On mount, silently re-authenticates using the refresh token in
- * localStorage (if any) by calling POST /api/v1/users/refresh — this is
- * what keeps a user logged in across a page reload, since the access token
- * itself is never persisted.
- *
- * @param {{ children: import("react").ReactNode }} props
- */
+const REFRESH_TOKEN_KEY = "refreshToken";
 export function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(null);
   const [role, setRole] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [status, setStatus] = useState("loading"); // "loading" | "authenticated" | "unauthenticated"
-
-  // Guards against React StrictMode's dev-mode double-invoke firing two
-  // concurrent /refresh calls on the same stored token.
+  const [email, setEmail] = useState(null);
+  const [firstName, setFirstName] = useState(null);
+  const [lastName, setLastName] = useState(null);
+  const [mobileNumber, setMobileNumber] = useState(null);
+  const [status, setStatus] = useState("loading");
   const hasCheckedSession = useRef(false);
 
+  /**
+   * Fetches the current user's profile (name, mobile number) and stores it.
+   * Fire-and-forget by design: called without awaiting so a slow/failed
+   * profile fetch never blocks login or session-restore, which only need
+   * the JWT-derived role/email to proceed.
+   * @param {string} token
+   */
+  async function loadProfile(token) {
+    try {
+      const profile = await getMe(token);
+      setFirstName(profile.firstName);
+      setLastName(profile.lastName);
+      setMobileNumber(profile.mobileNumber);
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    }
+  }
   useEffect(() => {
-    if (hasCheckedSession.current) return;
-    hasCheckedSession.current = true;
+    async function restoreSession() {
+      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      if (!refreshToken) {
+        setStatus("unauthenticated");
+        return;
+      }
 
-    // TODO:
-    // 1. Read the refresh token from localStorage (REFRESH_TOKEN_KEY).
-    // 2. If there isn't one, setStatus("unauthenticated") and return.
-    // 3. Otherwise call refreshRequest(refreshToken). On success: decode
-    //    the new accessToken via decodeJwt, store the new refreshToken in
-    //    localStorage (rotation), and set accessToken/role/userId + status
-    //    "authenticated".
-    // 4. On failure: remove the stored refresh token (it's invalid), and
-    //    setStatus("unauthenticated") either way.
+      try {
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
+          await refresh(refreshToken);
+        const payload = decodeJwt(newAccessToken);
+        if (!payload) {
+          console.error("Received malformed access token from backend");
+          setStatus("unauthenticated");
+          return;
+        }
+        localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+        setAccessToken(newAccessToken);
+        setRole(payload.role);
+        setUserId(payload.sub);
+        setEmail(payload.email);
+        setStatus("authenticated");
+        loadProfile(newAccessToken);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          localStorage.removeItem(REFRESH_TOKEN_KEY);
+        } else {
+          console.error("Error refreshing token:", error);
+        }
+        setStatus("unauthenticated");
+        return;
+      }
+    }
+    if (!hasCheckedSession.current) {
+      hasCheckedSession.current = true;
+      restoreSession();
+    }
   }, []);
 
-  /**
-   * Logs a user in: calls the login API, decodes the returned access token
-   * for role/userId, persists the refresh token, and updates auth state.
-   *
-   * @param {string} email
-   * @param {string} password
-   * @returns {Promise<{ role: string, userId: string }>} so the caller can
-   *   navigate to the right dashboard without a second read of context state.
-   * @throws {import("../api/client").ApiError} propagated for the Login page to render.
-   */
   async function login(email, password) {
     const { accessToken, refreshToken } = await loginRequest({
       email,
       password,
     });
-    const decoded = decodeJwt(accessToken);
-    if (!decoded) {
-      throw new Error("Failed to decode access token");
+    const payload = decodeJwt(accessToken);
+    if (!payload) {
+      throw new Error("Received malformed access token from backend");
     }
-    const { sub, role } = decoded;
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     setAccessToken(accessToken);
-    setRole(role);
-    setUserId(sub);
+    setRole(payload.role);
+    setUserId(payload.sub);
+    setEmail(payload.email);
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     setStatus("authenticated");
-    return { role, userId: sub };
+    loadProfile(accessToken);
+    return { role: payload.role, userId: payload.sub };
   }
 
-  /**
-   * Logs the user out: clears in-memory state and the stored refresh
-   * token. No backend call — there's no logout/blacklist endpoint.
-   */
   function logout() {
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
     setAccessToken(null);
     setRole(null);
     setUserId(null);
+    setEmail(null);
+    setFirstName(null);
+    setLastName(null);
+    setMobileNumber(null);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     setStatus("unauthenticated");
   }
 
-  const value = { accessToken, role, userId, status, login, logout };
+  const value = {
+    accessToken,
+    role,
+    userId,
+    email,
+    firstName,
+    lastName,
+    mobileNumber,
+    status,
+    login,
+    logout,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-/**
- * Reads the current auth state/actions. Must be called from within an
- * AuthProvider.
- *
- * @returns {{ accessToken: string|null, role: string|null, userId: string|null, status: "loading"|"authenticated"|"unauthenticated", login: Function, logout: Function }}
- */
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return ctx;
 }

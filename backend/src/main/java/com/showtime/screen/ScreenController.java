@@ -32,4 +32,20 @@ public class ScreenController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}")
+    public ResponseEntity<ScreenResponse> updateScreen(
+            @PathVariable Long id,
+            @RequestBody @Valid UpdateScreenRequest updateScreenRequest
+    ) {
+        return ResponseEntity.ok(screenService.update(id, updateScreenRequest));
+    }
+
+    @PostMapping("/{id}/seats")
+    public ResponseEntity<ScreenResponse> addSeats(
+            @PathVariable Long id,
+            @RequestBody @Valid AddSeatsRequest addSeatsRequest
+    ) {
+        return ResponseEntity.ok(screenService.addSeats(id, addSeatsRequest.getRowSegmentRequests()));
+    }
+
 }

@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/theaters")
@@ -21,6 +23,11 @@ public class TheaterController {
             Pageable pageable
     ) {
         return ResponseEntity.ok(theaterService.listAll(city, pageable));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<List<TheaterResponse>> getMyTheaters() {
+        return ResponseEntity.ok(theaterService.listMine());
     }
 
     @GetMapping("/{id}")

@@ -4,7 +4,7 @@ import Logo from "../components/Logo";
 import FormField from "../components/FormField";
 import Button from "../components/Button";
 import FormError from "../components/FormError";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { ApiError } from "../api/client";
 import { roleHomePath } from "../lib/roles";
 
@@ -32,7 +32,9 @@ export default function Login() {
    * @returns {(e: import("react").ChangeEvent<HTMLInputElement>) => void}
    */
   function handleChange(field) {
-    // TODO: return (e) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
+    return (e) => {
+      setValues((prev) => ({ ...prev, [field]: e.target.value }));
+    };
   }
 
   /**
@@ -45,27 +47,33 @@ export default function Login() {
    * @param {import("react").FormEvent} e
    */
   async function handleSubmit(e) {
-    // TODO: e.preventDefault(); setFormError(""); setPending(true);
-    // try {
-    //   const { role } = await auth.login(values.email, values.password);
-    //   const redirectTo = location.state?.from?.pathname ?? roleHomePath(role);
-    //   navigate(redirectTo, { replace: true });
-    // } catch (err) {
-    //   setFormError(err instanceof ApiError ? err.body?.message : "Something went wrong.");
-    // } finally {
-    //   setPending(false);
-    // }
+    e.preventDefault();
+    setFormError("");
+    setPending(true);
+    try {
+      const { role } = await auth.login(values.email, values.password);
+      console.log("Logged in with role:", role);
+      const redirectPath = location.state?.from?.pathname ?? roleHomePath(role);
+      console.log("Redirecting to:", redirectPath);
+      navigate(redirectPath, { replace: true });
+    } catch (err) {
+      setFormError(
+        err instanceof ApiError ? err.body?.message : "Something went wrong.",
+      );
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-paper px-6 py-12 text-center">
       <Logo />
 
-      <div className="w-full max-w-md rounded-lg border border-hairline bg-surface p-6 text-left shadow-sm sm:p-8">
-        <h1 className="text-center font-display text-2xl font-bold tracking-wide text-ink">
+      <div className="w-full max-w-md rounded-lg border border-hairline bg-surface p-6 text-left shadow-sm sm:max-w-lg sm:p-8 lg:max-w-xl lg:p-10">
+        <h1 className="text-center font-display text-3xl font-bold tracking-wide text-ink sm:text-4xl">
           Log in
         </h1>
-        <p className="mt-1 text-center text-sm text-mist">
+        <p className="mt-2 text-center text-base text-mist sm:text-lg">
           Welcome back — let&apos;s get you to your seats.
         </p>
 
@@ -77,7 +85,7 @@ export default function Login() {
           {registeredState && (
             <div
               role="status"
-              className="rounded-md border border-marquee/30 bg-marquee/10 px-4 py-3 text-sm text-marquee"
+              className="rounded-md border border-marquee/30 bg-marquee/10 px-4 py-3 text-base text-marquee sm:text-lg"
             >
               Account created — log in to continue.
             </div>
@@ -108,7 +116,7 @@ export default function Login() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-mist">
+        <p className="mt-6 text-center text-base text-mist sm:text-lg">
           New here?{" "}
           <Link
             to="/register"

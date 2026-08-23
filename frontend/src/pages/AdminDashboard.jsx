@@ -1,16 +1,19 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import Logo from "../components/Logo";
+import { useState, useEffect } from "react";
+import AppHeader from "../components/AppHeader";
 import FormField from "../components/FormField";
+import CitySelect from "../components/CitySelect";
 import Button from "../components/Button";
 import FormError from "../components/FormError";
-import { useAuth } from "../context/AuthContext";
+import Modal from "../components/Modal";
+import TheatersPanel from "../components/TheatersPanel";
+import { useAuth } from "../context/useAuth";
 import { createOwner } from "../api/admin";
 import { ApiError } from "../api/client";
 import {
   validateEmail,
   validatePassword,
   validateRequired,
+  validateCity,
   mapFieldErrors,
   PASSWORD_REQUIREMENTS_MESSAGE,
 } from "../lib/validators";
@@ -20,21 +23,32 @@ import {
  * role-gated endpoint (POST /api/v1/admin/owner). Creates a theater Owner
  * and their first theater in one call.
  */
+const EMPTY_VALUES = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+  city: "",
+  theaterName: "",
+  address: "",
+};
+
 export default function AdminDashboard() {
-  const navigate = useNavigate();
   const auth = useAuth();
 
-  const [values, setValues] = useState({
-    email: "",
-    password: "",
-    city: "",
-    theaterName: "",
-    address: "",
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [values, setValues] = useState(EMPTY_VALUES);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState(false);
   const [created, setCreated] = useState(null); // { ownerId, theaterId } | null
+  const [touched, setTouched] = useState({});
+  const [theatersRefreshKey, setTheatersRefreshKey] = useState(0);
+
+  useEffect(() => {
+    validate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values]);
 
   /**
    * Returns a change handler for a given field name, updating `values`
@@ -43,18 +57,42 @@ export default function AdminDashboard() {
    * @returns {(e: import("react").ChangeEvent<HTMLInputElement>) => void}
    */
   function handleChange(field) {
-    // TODO: return (e) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
+    return (e) => {
+      setValues((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+  }
+  function handleBlur(field) {
+    return () => {
+      setTouched((prev) => ({ ...prev, [field]: true }));
+    };
   }
 
   /**
-   * Validates email/password/city/theaterName as required (address has no
-   * @NotBlank on the backend, so it's optional here too). Populates
-   * `errors` via setErrors.
+   * Validates firstName/lastName/email/password/city/theaterName as
+   * required (address has no @NotBlank on the backend, so it's optional
+   * here too). Populates `errors` via setErrors.
    * @returns {boolean} true if there are no validation errors.
    */
   function validate() {
-    // TODO: build an errors object using validateRequired/validateEmail/
-    // validatePassword, setErrors(errorsObj), return Object.keys(errorsObj).length === 0.
+    const errorsObj = {};
+    const firstNameError = validateRequired(values.firstName, "First name");
+    if (firstNameError) errorsObj.firstName = firstNameError;
+    const lastNameError = validateRequired(values.lastName, "Last name");
+    if (lastNameError) errorsObj.lastName = lastNameError;
+    const emailError = validateEmail(values.email);
+    if (emailError) errorsObj.email = emailError;
+    const passwordError = validatePassword(values.password);
+    if (passwordError) errorsObj.password = passwordError;
+    const cityError = validateCity(values.city);
+    if (cityError) errorsObj.city = cityError;
+    const theaterNameError = validateRequired(
+      values.theaterName,
+      "Theater name",
+    );
+    if (theaterNameError) errorsObj.theaterName = theaterNameError;
+
+    setErrors(errorsObj);
+    return Object.keys(errorsObj).length === 0;
   }
 
   /**
@@ -67,126 +105,212 @@ export default function AdminDashboard() {
    * @param {import("react").FormEvent} e
    */
   async function handleSubmit(e) {
-    // TODO: e.preventDefault(); setFormError(""); if (!validate()) return;
-    // setPending(true);
-    // try {
-    //   const payload = {
-    //     email: values.email,
-    //     password: values.password,
-    //     city: values.city,
-    //     theaterName: values.theaterName,
-    //     ...(values.address.trim() ? { address: values.address.trim() } : {}),
-    //   };
-    //   const result = await createOwner(payload, auth.accessToken);
-    //   setCreated(result);
-    //   setValues({ email: "", password: "", city: "", theaterName: "", address: "" });
-    // } catch (err) {
-    //   if (err instanceof ApiError && err.status === 400) {
-    //     setErrors(mapFieldErrors(err.body?.fieldErrors));
-    //   } else {
-    //     setFormError(err instanceof ApiError ? err.body?.message : "Something went wrong.");
-    //   }
-    // } finally {
-    //   setPending(false);
-    // }
+    e.preventDefault();
+    setFormError("");
+    if (!validate()) return;
+    setPending(true);
+    try {
+      const payload = {
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        password: values.password,
+        city: values.city,
+        theaterName: values.theaterName,
+        ...(values.address.trim() ? { address: values.address.trim() } : {}),
+      };
+      const result = await createOwner(payload, auth.accessToken);
+      setCreated(result);
+      setValues(EMPTY_VALUES);
+      setTouched({});
+      setErrors({});
+      setTheatersRefreshKey((key) => key + 1);
+      setIsModalOpen(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 400) {
+        setErrors(mapFieldErrors(err.body?.fieldErrors));
+      } else {
+        setFormError(
+          err instanceof ApiError ? err.body?.message : "Something went wrong.",
+        );
+      }
+    } finally {
+      setPending(false);
+    }
   }
 
-  /** Logs out and returns to the login page. */
-  function handleLogout() {
-    auth.logout();
-    navigate("/login");
+  /** Opens the create-owner modal with a clean form. */
+  function openModal() {
+    setIsModalOpen(true);
   }
+
+  /**
+   * Closes the create-owner modal and resets its form state, so the next
+   * open always starts fresh. No-ops while a submit is in flight.
+   */
+  function closeModal() {
+    if (pending) return;
+    setIsModalOpen(false);
+    setValues(EMPTY_VALUES);
+    setErrors({});
+    setTouched({});
+    setFormError("");
+  }
+
+  const requiredFieldFilled =
+    values.firstName.trim() &&
+    values.lastName.trim() &&
+    values.email.trim() &&
+    values.password.trim() &&
+    values.city.trim() &&
+    values.theaterName.trim();
+
+  const isFormValid = requiredFieldFilled && Object.keys(errors).length === 0;
 
   return (
-    <main className="flex min-h-screen flex-col items-center gap-6 bg-paper px-6 py-12">
-      <div className="flex w-full max-w-md items-center justify-between">
-        <Logo />
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="text-sm font-medium text-mist hover:text-velvet"
+    <main className="flex min-h-screen flex-col items-center bg-paper">
+      <AppHeader />
+
+      <div className="flex w-full flex-col items-center gap-6 px-6 py-8">
+        <div className="flex w-full max-w-5xl flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="font-display text-2xl font-bold tracking-wide text-ink">
+                Theaters
+              </h1>
+              <p className="mt-1 text-sm text-mist">
+                Provision theater Owners and their first theater.
+              </p>
+            </div>
+            <Button type="button" onClick={openModal} className="sm:w-auto">
+              Create owner
+            </Button>
+          </div>
+
+          {created && (
+            <div
+              role="status"
+              className="rounded-md border border-marquee/30 bg-marquee/10 px-4 py-3 text-sm text-marquee"
+            >
+              Created owner #{created.ownerId} with theater #
+              {created.theaterId}.
+            </div>
+          )}
+        </div>
+
+        <Modal
+          open={isModalOpen}
+          onClose={closeModal}
+          title="Create an owner"
+          closeDisabled={pending}
         >
-          Log out
-        </button>
-      </div>
+          <p className="mt-1 text-sm text-mist">
+            Provisions an Owner account and their first theater.
+          </p>
 
-      <div className="w-full max-w-md rounded-lg border border-hairline bg-surface p-6 text-left shadow-sm sm:p-8">
-        <h1 className="font-display text-2xl font-bold tracking-wide text-ink">
-          Create an owner
-        </h1>
-        <p className="mt-1 text-sm text-mist">
-          Provisions an Owner account and their first theater.
-        </p>
-
-        {created && (
-          <div
-            role="status"
-            className="mt-4 rounded-md border border-marquee/30 bg-marquee/10 px-4 py-3 text-sm text-marquee"
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="mt-6 flex flex-col gap-4"
           >
-            Created owner #{created.ownerId} with theater #{created.theaterId}.
-          </div>
-        )}
+            <FormError message={formError} />
 
-        <form
-          onSubmit={handleSubmit}
-          noValidate
-          className="mt-6 flex flex-col gap-4"
-        >
-          <FormError message={formError} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                id="firstName"
+                label="Owner first name"
+                value={values.firstName}
+                onChange={handleChange("firstName")}
+                error={touched.firstName ? errors.firstName : undefined}
+                onBlur={handleBlur("firstName")}
+                autoComplete="given-name"
+              />
+              <FormField
+                id="lastName"
+                label="Owner last name"
+                value={values.lastName}
+                onChange={handleChange("lastName")}
+                error={touched.lastName ? errors.lastName : undefined}
+                onBlur={handleBlur("lastName")}
+                autoComplete="family-name"
+              />
+            </div>
 
-          <FormField
-            id="email"
-            label="Owner email"
-            type="email"
-            value={values.email}
-            onChange={handleChange("email")}
-            error={errors.email}
-            autoComplete="off"
-          />
-
-          <div>
             <FormField
-              id="password"
-              label="Owner password"
-              type="password"
-              value={values.password}
-              onChange={handleChange("password")}
-              error={errors.password}
-              autoComplete="new-password"
+              id="email"
+              label="Owner email"
+              type="email"
+              value={values.email}
+              onChange={handleChange("email")}
+              error={touched.email ? errors.email : undefined}
+              onBlur={handleBlur("email")}
+              autoComplete="off"
             />
-            <p className="mt-1.5 text-xs text-mist">
-              {PASSWORD_REQUIREMENTS_MESSAGE}
-            </p>
-          </div>
 
-          <FormField
-            id="theaterName"
-            label="Theater name"
-            value={values.theaterName}
-            onChange={handleChange("theaterName")}
-            error={errors.theaterName}
-          />
+            <div>
+              <FormField
+                id="password"
+                label="Owner password"
+                type="password"
+                value={values.password}
+                onChange={handleChange("password")}
+                error={touched.password ? errors.password : undefined}
+                onBlur={handleBlur("password")}
+                autoComplete="new-password"
+              />
+              <p className="mt-1.5 text-xs text-mist">
+                {PASSWORD_REQUIREMENTS_MESSAGE}
+              </p>
+            </div>
 
-          <FormField
-            id="city"
-            label="City"
-            value={values.city}
-            onChange={handleChange("city")}
-            error={errors.city}
-          />
+            <FormField
+              id="theaterName"
+              label="Theater name"
+              value={values.theaterName}
+              onChange={handleChange("theaterName")}
+              error={touched.theaterName ? errors.theaterName : undefined}
+              onBlur={handleBlur("theaterName")}
+            />
 
-          <FormField
-            id="address"
-            label="Address (optional)"
-            value={values.address}
-            onChange={handleChange("address")}
-            error={errors.address}
-          />
+            <CitySelect
+              id="city"
+              label="City"
+              value={values.city}
+              onChange={(city) => setValues((prev) => ({ ...prev, city }))}
+              error={touched.city ? errors.city : undefined}
+              onBlur={handleBlur("city")}
+            />
 
-          <Button pending={pending} className="mt-2 w-full">
-            Create owner
-          </Button>
-        </form>
+            <FormField
+              id="address"
+              label="Address (optional)"
+              value={values.address}
+              onChange={handleChange("address")}
+              error={touched.address ? errors.address : undefined}
+              onBlur={handleBlur("address")}
+            />
+
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row-reverse">
+              <Button
+                pending={pending}
+                disabled={pending || !isFormValid}
+                className="w-full sm:w-auto"
+              >
+                Create owner
+              </Button>
+              <Button
+                type="button"
+                onClick={closeModal}
+                disabled={pending}
+                className="w-full bg-transparent! text-ink! ring-1 ring-inset ring-hairline hover:bg-paper! sm:w-auto"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        <TheatersPanel refreshKey={theatersRefreshKey} />
       </div>
     </main>
   );

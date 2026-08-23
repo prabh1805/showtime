@@ -32,6 +32,7 @@ public class SecurityConfig {
                                 "/api/v1/users/login",
                                 "/api/v1/users/refresh"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
 
                         // Admin-only — coarse role check is sufficient, no per-resource context needed

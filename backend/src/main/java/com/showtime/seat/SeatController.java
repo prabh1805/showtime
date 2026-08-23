@@ -31,4 +31,12 @@ public class SeatController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}")
+    public ResponseEntity<SeatResponse> updateSeat(
+            @PathVariable Long id,
+            @RequestBody @Valid UpdateSeatRequest updateSeatRequest
+    ){
+        return ResponseEntity.ok(seatService.update(id, updateSeatRequest));
+    }
+
 }

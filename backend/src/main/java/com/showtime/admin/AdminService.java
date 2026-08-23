@@ -9,6 +9,8 @@ import com.showtime.user.Role;
 import com.showtime.user.User;
 import com.showtime.user.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,5 +43,8 @@ public class AdminService {
 
         return response;
     }
-
+    @Transactional(readOnly = true)
+    public Page<TheaterResponse> filterTheaters(String ownerName, String city, String theaterName, Pageable pageable) {
+        return theaterService.searchTheaters(ownerName, city, theaterName, pageable);
+    }
 }

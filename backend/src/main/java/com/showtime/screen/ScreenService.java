@@ -1,5 +1,6 @@
 package com.showtime.screen;
 
+import com.showtime.seat.DuplicateSeatException;
 import com.showtime.seat.Seat;
 import com.showtime.seat.SeatService;
 import com.showtime.seat.SeatStatus;
@@ -65,8 +66,49 @@ public class ScreenService {
     @Transactional
     public void softDelete(Long id) {
         Screen screen = getEntityById(id);
+        theaterStaffService.assertCallerCanManage(screen.getTheater(), "delete screens at");
         screen.setStatus(ScreenStatus.PERMANENTLY_CLOSED);
         screenRepository.save(screen);
+    }
+
+    @Transactional
+    public ScreenResponse update(Long id, UpdateScreenRequest request) {
+        Screen screen = getEntityById(id);
+        theaterStaffService.assertCallerCanManage(screen.getTheater(), "update screens at");
+
+        if (request.getName() != null
+                && !request.getName().equals(screen.getName())
+                && screenRepository.existsByTheaterIdAndName(screen.getTheater().getId(), request.getName())) {
+            throw new DuplicateScreenException(screen.getTheater().getId(), request.getName());
+        }
+
+        if (request.getName() != null) {
+            screen.setName(request.getName());
+        }
+        if (request.getType() != null) {
+            screen.setType(request.getType());
+        }
+        if (request.getStatus() != null) {
+            screen.setStatus(request.getStatus());
+        }
+        if (request.getBufferMinutes() != null) {
+            screen.setBufferMinutes(request.getBufferMinutes());
+        }
+
+        Screen result = screenRepository.save(screen);
+        return mapToScreenResponse(result);
+    }
+
+    @Transactional
+    public ScreenResponse addSeats(Long screenId, List<RowSegmentRequest> rowSegmentRequests) {
+        Screen screen = getEntityById(screenId);
+        theaterStaffService.assertCallerCanManage(screen.getTheater(), "add seats for");
+
+        ensureNoOverlap(rowSegmentRequests);
+        ensureNoConflictWithExisting(screenId, rowSegmentRequests);
+
+        seatService.createSeats(convertToValidSeats(rowSegmentRequests, screen));
+        return mapToScreenResponse(screen);
     }
 
     public Screen getEntityById(Long id) {
@@ -103,6 +145,21 @@ public class ScreenService {
                 RowSegmentRequest last =  list.get(indx - 1);
                 if(curr.getStartNumber() <= last.getStartNumber() + last.getCount() - 1){
                     throw new SeatOverlapException(last, curr);
+                }
+            }
+        }
+    }
+
+    private void ensureNoConflictWithExisting(Long screenId, List<RowSegmentRequest> rowSegmentRequests) {
+        Set<String> existingKeys = seatService.getAllByScreenId(screenId).stream()
+                .map(seat -> seat.getRow() + "-" + seat.getNumber())
+                .collect(Collectors.toSet());
+
+        for (RowSegmentRequest segment : rowSegmentRequests) {
+            for (int i = 0; i < segment.getCount(); i++) {
+                int number = segment.getStartNumber() + i;
+                if (existingKeys.contains(segment.getRow() + "-" + number)) {
+                    throw new DuplicateSeatException(screenId, segment.getRow(), number);
                 }
             }
         }

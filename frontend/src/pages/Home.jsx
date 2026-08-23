@@ -7,21 +7,21 @@ import Logo from "../components/Logo";
  */
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-paper px-6 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-paper px-6 text-center sm:gap-10">
       <Logo />
-      <p className="max-w-sm text-mist">
+      <p className="max-w-sm text-lg text-mist sm:max-w-md sm:text-xl lg:max-w-lg lg:text-2xl">
         Home page placeholder. The real show-discovery homepage comes later.
       </p>
-      <div className="flex gap-4">
+      <div className="flex w-full max-w-xs flex-col gap-3 sm:w-auto sm:max-w-none sm:flex-row sm:gap-5">
         <Link
           to="/login"
-          className="rounded-md border border-velvet px-4 py-2 text-sm font-medium text-velvet hover:bg-velvet hover:text-paper transition-colors"
+          className="rounded-md border border-velvet px-6 py-3.5 text-lg font-medium text-velvet hover:bg-velvet hover:text-paper transition-colors sm:px-8 sm:py-4 sm:text-xl"
         >
           Log in
         </Link>
         <Link
           to="/register"
-          className="rounded-md bg-velvet px-4 py-2 text-sm font-medium text-paper hover:bg-velvet-soft transition-colors"
+          className="rounded-md bg-velvet px-6 py-3.5 text-lg font-medium text-paper hover:bg-velvet-soft transition-colors sm:px-8 sm:py-4 sm:text-xl"
         >
           Register
         </Link>

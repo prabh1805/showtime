@@ -12,7 +12,7 @@ export default function Logo({ withWordmark = true, className = "" }) {
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <svg
         viewBox="0 0 100 100"
-        className="h-9 w-9 shrink-0"
+        className="h-12 w-12 shrink-0 sm:h-14 sm:w-14 lg:h-16 lg:w-16"
         role={withWordmark ? "presentation" : "img"}
         aria-hidden={withWordmark ? "true" : undefined}
         aria-label={withWordmark ? undefined : "Showtime"}
@@ -26,7 +26,7 @@ export default function Logo({ withWordmark = true, className = "" }) {
         <path d="M42 34 L42 66 L70 50 Z" fill="#FAF7F0" />
       </svg>
       {withWordmark && (
-        <span className="font-display text-xl font-bold tracking-wide text-ink">
+        <span className="font-display text-2xl font-bold tracking-wide text-ink sm:text-3xl lg:text-4xl">
           SHOWTIME
         </span>
       )}

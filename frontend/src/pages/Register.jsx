@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import FormField from "../components/FormField";
@@ -6,7 +6,7 @@ import Button from "../components/Button";
 import FormError from "../components/FormError";
 import { register } from "../api/auth";
 import { ApiError } from "../api/client";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { roleHomePath } from "../lib/roles";
 import {
   validateEmail,
@@ -35,7 +35,12 @@ export default function Register() {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState(false);
+  const [touched, setTouched] = useState({});
 
+  useEffect(() => {
+    validate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values]);
   /**
    * Returns a change handler for a given field name, updating `values`
    * from the input's current value.
@@ -43,7 +48,15 @@ export default function Register() {
    * @returns {(e: import("react").ChangeEvent<HTMLInputElement>) => void}
    */
   function handleChange(field) {
-    // TODO: return (e) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
+    return (e) => {
+      setValues((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      setTouched((prev) => ({ ...prev, [field]: true }));
+    };
   }
 
   /**
@@ -53,8 +66,29 @@ export default function Register() {
    * @returns {boolean} true if there are no validation errors.
    */
   function validate() {
-    // TODO: build an errors object using validateRequired/validateEmail/
-    // validatePassword, setErrors(errorsObj), return Object.keys(errorsObj).length === 0.
+    const errorsObj = {};
+    const firstNameError = validateRequired(values.firstName, "First name");
+    if (firstNameError) {
+      errorsObj.firstName = firstNameError;
+    }
+
+    const lastNameError = validateRequired(values.lastName, "Last name");
+    if (lastNameError) {
+      errorsObj.lastName = lastNameError;
+    }
+
+    const emailError = validateEmail(values.email);
+    if (emailError) {
+      errorsObj.email = emailError;
+    }
+
+    const passwordError = validatePassword(values.password);
+    if (passwordError) {
+      errorsObj.password = passwordError;
+    }
+
+    setErrors(errorsObj);
+    return Object.keys(errorsObj).length === 0;
   }
 
   /**
@@ -73,39 +107,62 @@ export default function Register() {
    * @param {import("react").FormEvent} e
    */
   async function handleSubmit(e) {
-    // TODO: e.preventDefault(); setFormError(""); if (!validate()) return;
+    // TODO: e.preventDefault(); setFormError("");
+    e.preventDefault();
+    setFormError("");
+    //  if (!validate()) return;
+    if (!validate()) return;
     // setPending(true);
-    // try {
-    //   await register({ ...values, mobileNumber: values.mobileNumber || undefined });
-    // } catch (err) {
-    //   setPending(false);
-    //   if (err instanceof ApiError && err.status === 400) {
-    //     setErrors(mapFieldErrors(err.body?.fieldErrors));
-    //   } else {
-    //     setFormError(err instanceof ApiError ? err.body?.message : "Something went wrong.");
-    //   }
-    //   return;
-    // }
-    //
-    // try {
-    //   const { role } = await auth.login(values.email, values.password);
-    //   navigate(roleHomePath(role), { replace: true });
-    // } catch {
-    //   navigate("/login", { state: { registered: true, email: values.email } });
-    // } finally {
-    //   setPending(false);
-    // }
+    setPending(true);
+    try {
+      await register({
+        ...values,
+        mobileNumber: values.mobileNumber || undefined,
+      });
+    } catch (err) {
+      setPending(false);
+      if (err instanceof ApiError && err.status === 400) {
+        setErrors(mapFieldErrors(err.body?.fieldErrors));
+      } else {
+        setFormError(
+          err instanceof ApiError ? err.body?.message : "Something went wrong.",
+        );
+      }
+      return;
+    }
+
+    try {
+      const { role } = await auth.login(values.email, values.password);
+      navigate(roleHomePath(role), { replace: true });
+    } catch (err) {
+      navigate("/login", { state: { registered: true, email: values.email } });
+      if (err instanceof ApiError) {
+        console.error("Login failed after successful registration:", err);
+      } else {
+        setFormError("Something went wrong.");
+      }
+    } finally {
+      setPending(false);
+    }
   }
+
+  const requiredFieldFilled =
+    values.firstName.trim() !== "" &&
+    values.lastName.trim() !== "" &&
+    values.email.trim() !== "" &&
+    values.password.trim() !== "";
+
+  const isFormValid = requiredFieldFilled && Object.keys(errors).length === 0;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-paper px-6 py-12 text-center">
       <Logo />
 
-      <div className="w-full max-w-md rounded-lg border border-hairline bg-surface p-6 text-left shadow-sm sm:p-8">
-        <h1 className="text-center font-display text-2xl font-bold tracking-wide text-ink">
+      <div className="w-full max-w-md rounded-lg border border-hairline bg-surface p-6 text-left shadow-sm sm:max-w-lg sm:p-8 lg:max-w-xl lg:p-10">
+        <h1 className="text-center font-display text-3xl font-bold tracking-wide text-ink sm:text-4xl">
           Create your account
         </h1>
-        <p className="mt-1 text-center text-sm text-mist">
+        <p className="mt-2 text-center text-base text-mist sm:text-lg">
           Book shows in a few taps.
         </p>
 
@@ -122,7 +179,8 @@ export default function Register() {
               label="First name"
               value={values.firstName}
               onChange={handleChange("firstName")}
-              error={errors.firstName}
+              error={touched.firstName ? errors.firstName : undefined}
+              onBlur={handleBlur("firstName")}
               autoComplete="given-name"
             />
             <FormField
@@ -130,7 +188,8 @@ export default function Register() {
               label="Last name"
               value={values.lastName}
               onChange={handleChange("lastName")}
-              error={errors.lastName}
+              error={touched.lastName ? errors.lastName : undefined}
+              onBlur={handleBlur("lastName")}
               autoComplete="family-name"
             />
           </div>
@@ -141,7 +200,8 @@ export default function Register() {
             type="email"
             value={values.email}
             onChange={handleChange("email")}
-            error={errors.email}
+            error={touched.email ? errors.email : undefined}
+            onBlur={handleBlur("email")}
             autoComplete="email"
           />
 
@@ -152,10 +212,11 @@ export default function Register() {
               type="password"
               value={values.password}
               onChange={handleChange("password")}
-              error={errors.password}
+              error={touched.password ? errors.password : undefined}
+              onBlur={handleBlur("password")}
               autoComplete="new-password"
             />
-            <p className="mt-1.5 text-xs text-mist">
+            <p className="mt-1.5 text-sm text-mist sm:text-base">
               {PASSWORD_REQUIREMENTS_MESSAGE}
             </p>
           </div>
@@ -166,16 +227,21 @@ export default function Register() {
             type="tel"
             value={values.mobileNumber}
             onChange={handleChange("mobileNumber")}
-            error={errors.mobileNumber}
+            error={touched.mobileNumber ? errors.mobileNumber : undefined}
+            onBlur={handleBlur("mobileNumber")}
             autoComplete="tel"
           />
 
-          <Button pending={pending} className="mt-2 w-full">
+          <Button
+            pending={pending}
+            disabled={pending || !isFormValid}
+            className="mt-2 w-full"
+          >
             Create account
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-mist">
+        <p className="mt-6 text-center text-base text-mist sm:text-lg">
           Already have an account?{" "}
           <Link
             to="/login"

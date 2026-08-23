@@ -2,6 +2,7 @@ package com.showtime.seat;
 
 import com.showtime.screen.Screen;
 import com.showtime.screen.ScreenService;
+import com.showtime.theaterstaff.TheaterStaffService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -17,10 +18,12 @@ public class SeatService {
     @Lazy
     private final ScreenService screenService;
     private final SeatRepository seatRepository;
+    private final TheaterStaffService theaterStaffService;
 
     @Transactional
     public SeatResponse create(CreateSeatRequest createSeatRequest) {
         Screen screen = screenService.getEntityById(createSeatRequest.getScreenId());
+        theaterStaffService.assertCallerCanManage(screen.getTheater(), "add seats for");
         if(seatRepository.existsByScreenIdAndRowAndNumber(
                 createSeatRequest.getScreenId(),
                 createSeatRequest.getRow(),
@@ -57,8 +60,28 @@ public class SeatService {
     @Transactional
     public void softDelete(Long id) {
         Seat seat = getEntityById(id);
+        theaterStaffService.assertCallerCanManage(seat.getScreen().getTheater(), "remove seats from");
         seat.setStatus(SeatStatus.REMOVED);
         seatRepository.save(seat);
+    }
+
+    @Transactional
+    public SeatResponse update(Long id, UpdateSeatRequest request) {
+        Seat seat = getEntityById(id);
+        theaterStaffService.assertCallerCanManage(seat.getScreen().getTheater(), "update seats for");
+        if (request.getStatus() != null) {
+            seat.setStatus(request.getStatus());
+        }
+        if (request.getType() != null) {
+            seat.setType(request.getType());
+        }
+        Seat result = seatRepository.save(seat);
+        return mapToResponse(result);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Seat> getAllByScreenId(Long screenId) {
+        return seatRepository.findAllByScreenId(screenId);
     }
 
     public void createSeats(List<Seat> seats){

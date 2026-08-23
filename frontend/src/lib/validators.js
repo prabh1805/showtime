@@ -1,3 +1,5 @@
+import { INDIAN_CITIES } from "./indianCities";
+
 /**
  * Password strength rule, kept byte-for-byte in sync with the backend's
  * @Pattern on RegisterRequest/CreateOwnerRequest/ChangePasswordRequest:
@@ -42,6 +44,24 @@ export function validatePassword(password) {
   }
   if (!PASSWORD_PATTERN.test(password)) {
     return PASSWORD_REQUIREMENTS_MESSAGE;
+  }
+  return undefined;
+}
+
+/**
+ * Validates a city value came from the fixed CitySelect list — required,
+ * and if present must be an exact match against INDIAN_CITIES (rules out
+ * anything left over from a half-typed, unselected search).
+ *
+ * @param {string} city
+ * @returns {string | undefined} an error message, or undefined if valid.
+ */
+export function validateCity(city) {
+  if (city.trim() === "") {
+    return "City is required.";
+  }
+  if (!INDIAN_CITIES.includes(city)) {
+    return "Select a city from the list.";
   }
   return undefined;
 }

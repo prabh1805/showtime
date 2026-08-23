@@ -7,6 +7,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
+import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -44,6 +45,14 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["CUSTOMER"]}>
             <CustomerDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "STAFF", "CUSTOMER"]}>
+            <Profile />
           </ProtectedRoute>
         }
       />

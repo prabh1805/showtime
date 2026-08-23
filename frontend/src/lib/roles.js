@@ -14,5 +14,5 @@ export const ROLE_HOME_PATHS = {
  *   unrecognized.
  */
 export function roleHomePath(role) {
-  // TODO: look up `role` in ROLE_HOME_PATHS, fall back to "/".
+  return ROLE_HOME_PATHS[role] || "/";
 }

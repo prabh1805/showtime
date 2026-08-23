@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 /**
  * Staff dashboard — WIP. The backend has exception classes hinting at an

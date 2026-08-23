@@ -1,42 +1,98 @@
-import { useNavigate } from "react-router-dom";
-import Logo from "../components/Logo";
-import { useAuth } from "../context/AuthContext";
+import { useEffect, useState } from "react";
+import AppHeader from "../components/AppHeader";
+import FormError from "../components/FormError";
+import ScreensManager from "../components/ScreensManager";
+import { LoadingBlock } from "../components/Spinner";
+import { useAuth } from "../context/useAuth";
+import { getMyTheaters } from "../api/theaters";
+import { ApiError } from "../api/client";
 
 /**
- * Owner dashboard — WIP. A real "my theater details" view needs an
- * owner-scoped theater lookup endpoint that doesn't exist on the backend
- * yet (GET /api/v1/theaters only filters by city, and login doesn't
- * return a theaterId), so this is a stub until that's built.
+ * Owner dashboard: lists the theater(s) the logged-in Owner (or active
+ * Staff member) manages, and lets them manage the selected theater's
+ * Screens and seat maps via `ScreensManager`. Auto-selects when there's
+ * exactly one theater (today's common case — Admin's create-owner flow
+ * always creates exactly one theater per new owner).
  */
 export default function OwnerDashboard() {
-  const navigate = useNavigate();
   const auth = useAuth();
+  const [theaters, setTheaters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedTheaterId, setSelectedTheaterId] = useState(null);
 
-  /** Logs out and returns to the login page. */
-  function handleLogout() {
-    auth.logout();
-    navigate("/login");
-  }
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const result = await getMyTheaters(auth.accessToken);
+        if (!cancelled) {
+          setTheaters(result);
+          if (result.length > 0) setSelectedTheaterId(result[0].id);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof ApiError && err.body?.message
+              ? err.body.message
+              : "Couldn't load your theaters.",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.accessToken]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-paper px-6 text-center">
-      <Logo />
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-wide text-ink">
-          Owner dashboard — coming soon
-        </h1>
-        <p className="mt-2 max-w-sm text-mist">
-          Your theater details will show up here once the backend supports
-          looking them up by owner.
-        </p>
+    <main className="flex min-h-screen flex-col items-center bg-paper">
+      <AppHeader />
+
+      <div className="flex w-full flex-col items-center gap-6 px-6 py-8">
+        {loading ? (
+          <LoadingBlock label="Loading your theaters…" />
+        ) : error ? (
+          <div className="w-full max-w-5xl">
+            <FormError message={error} />
+          </div>
+        ) : theaters.length === 0 ? (
+          <p className="max-w-sm text-center text-mist">
+            No theater is assigned to your account yet. Contact an admin if
+            you believe this is a mistake.
+          </p>
+        ) : (
+          <>
+            {theaters.length > 1 && (
+              <div className="flex w-full max-w-5xl flex-wrap gap-2">
+                {theaters.map((theater) => (
+                  <button
+                    key={theater.id}
+                    type="button"
+                    onClick={() => setSelectedTheaterId(theater.id)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                      theater.id === selectedTheaterId
+                        ? "border-velvet bg-velvet text-paper"
+                        : "border-hairline text-ink hover:border-velvet hover:text-velvet"
+                    }`}
+                  >
+                    {theater.name} · {theater.city}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selectedTheaterId && (
+              <ScreensManager theaterId={selectedTheaterId} />
+            )}
+          </>
+        )}
       </div>
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="text-sm font-medium text-velvet underline-offset-4 hover:underline"
-      >
-        Log out
-      </button>
     </main>
   );
 }
