@@ -53,7 +53,10 @@ public class ShowService {
         show.setEndTime(endTime);
         show.setScreen(screen);
         show.setShowTime(createShowRequest.getShowTime());
-        Show insertedShow = showRepository.save(show);
+        // Show has no mapped association to ShowSeat (just a plain FK column), so Hibernate's
+        // batched-insert ordering has no way to know the seats below depend on this row.
+        // Flush now so the parent row is guaranteed committed-in-transaction before they're inserted.
+        Show insertedShow = showRepository.saveAndFlush(show);
 
         List<ShowSeat> showSeats = showSeatService.createShowSeats(insertedShow, createShowRequest.getScreenId());
 
