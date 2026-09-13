@@ -164,6 +164,144 @@ section, the backend itself only enforces auth on `/api/v1/admin/**`.
 
 ## Session log
 
+### 2026-09-06 — Session 5
+**Context:** the backend `movie` domain was already mid-rewrite in the
+working tree (old hand-authored `CreateMovieRequest`/`MovieBatchService`/
+`MovieMapper` etc. staged as deleted; new TMDB-import flow half-built; the
+`show`/`showSeat` domains staged as deleted too). Goal this session: finish
+the **admin "add movie to the catalog"** flow end to end.
+
+**Built (backend — `backend/src/main/java/com/showtime/movie/`):**
+- Fixed the one compile error: `MovieService.getMovieById` was missing its
+  `return` (now returns `tmdbMovieMapper.toDetailResponse(movie)`).
+- `POST /api/v1/movies/upsertMovies` (import/refresh movies by TMDB id,
+  per-item success/failure via the sealed `MovieBatchItemResult`) now has
+  `@PreAuthorize("hasRole('ADMIN')")` — it had **no auth annotation** and
+  fell through to `.anyRequest().authenticated()`, i.e. any logged-in user
+  could write to the catalog.
+- `GET /api/v1/movies/getPages` gained an optional `?title=` substring
+  filter (case-insensitive, `Pattern.quote`d server-side via MongoTemplate
+  criteria + a manual `PageImpl` so paging metadata stays correct). This is
+  the list the frontend shows and whose `movieId` a show will reference.
+- `MovieSummaryResponse` widened with `duration`, `genre`, `posterPath`
+  (all already on `Movie`, so MapStruct's `toSummaryResponse` just copies
+  them) — feeds the frontend's row hover-card without an N+1 detail fetch.
+  Also returned by `getForStaff`.
+- New `common/exception/BadGatewayException` (abstract, → HTTP 502) +
+  handler in `GlobalExceptionHandler`, following the existing
+  abstract-exception-per-status pattern. `TmdbSyncException` now extends it,
+  so a TMDB outage surfaces as a clean `502` instead of the catch-all
+  `500 "Something went wrong"`.
+- `TmdbMovieMapper`: added `duration ← runtime` mapping (was silently never
+  populated — `Movie.duration` stayed 0) and explicit
+  `@Mapping(target = "cast", ignore = true)` / `movieId` ignores on both
+  `toMovie` and `updateMovieFromTmdb` to keep the generated impl from
+  null-ing `cast` on refresh and to silence unmapped-target noise.
+- Removed an unused `lombok.extern.java.Log` import in `MovieRepository`.
+- Fixed a startup crash + a follow-on 502 around `movie/config/TmdbClientConfig`
+  (untracked file from the refactor, predates this session). Its
+  `tmdbRestClient` bean injected `RestClient.Builder`, but Boot 4 moved
+  `RestClient` auto-config into its own module, so the bean didn't exist →
+  `APPLICATION FAILED TO START` (`NoSuchBeanDefinitionException:
+  RestClient$Builder`), nothing bound port 8081. First tried a bare static
+  `RestClient.builder()` — app started, but every TMDB call then 502'd
+  because a bare builder has none of Boot's JSON converter config (Jackson 3
+  + JSR-310), so deserializing `TmdbSearchResult.releaseDate` (a
+  `LocalDate`) threw and hit `TmdbClientService`'s `RestClientException`
+  catch-all → `TmdbSyncException` → 502. Real fix: added
+  `spring-boot-starter-restclient` to `pom.xml` and kept the injected
+  `RestClient.Builder` param (now a real, Boot-configured bean).
+  **Requires a Maven reimport in IDE + backend restart.**
+- Added `spring.http.client.connect-timeout=5s` / `read-timeout=10s` to
+  `application.properties` so an unreachable TMDB fails fast.
+- **Environment gotcha (not a code bug):** on this machine outbound IPv4 to
+  TMDB's AWS range (`3.175.86.x`) is broken — `curl` works only because it
+  Happy-Eyeballs onto IPv6; the JVM sorts IPv4 first and gives up
+  (`TmdbSyncException: Could not reach TMDB`). Fix is a JVM flag on the run
+  config: `-Djava.net.preferIPv6Addresses=true` (or
+  `JAVA_TOOL_OPTIONS`). Not baked into the repo because it would hurt an
+  IPv4-only network.
+- Deleted the 4 stale `src/test/java/com/showtime/movie/*Test.java` files
+  (`MovieBatchServiceTest`, `MovieControllerTest`, `MovieMapperTest`,
+  `MovieServiceTest`) — they tested now-deleted classes (`MovieMapper`,
+  `MovieBatchService`, `CreateMovieRequest`, `BulkCreateMovieRequest`) and
+  broke `test-compile`. Done at the user's explicit request.
+  `ShowtimeApplicationTests` (context-loads smoke test) kept.
+- `./mvnw -o clean test-compile` → BUILD SUCCESS.
+
+**Built (frontend):**
+- `src/api/movies.js` — `searchTmdbMovies(query)`, `upsertMovies(tmdbIds)`,
+  `getMoviesPage({title,page,size,sort})`. All ADMIN, all send the Bearer
+  token via `apiFetch`'s `headers` passthrough.
+- `src/components/AddMoviesModal.jsx` — the add flow: TMDB title search →
+  tick results (poster thumb from `image.tmdb.org`, year, TMDB id,
+  overview) → import → per-movie ✓/✕ outcome list (shows the new catalog
+  `movieId` for each success). Mounted only while open
+  (`{isAddOpen && <AddMoviesModal .../>}`) so each open is a fresh
+  component — avoids the `react-hooks/set-state-in-effect` lint rule that a
+  reset-on-open effect would trip (same rule still unfixed in
+  `CitySelect.jsx`).
+- `src/components/MoviesPanel.jsx` — persisted-catalog table modeled on
+  `TheatersPanel`: debounced `?title=` filter, sortable Title/Runtime/
+  Released/Status columns, rows-per-page selector, prev/next paging. Owns
+  an internal `refreshKey` so the list re-fetches after `AddMoviesModal`
+  reports a successful import. **Reworked after first review** — the
+  original had a click-to-copy `movieId` column; user wanted plain columns
+  + a details view. Now: hovering a row shows `MovieHoverCard` (a
+  cursor-clamped floating mini-card: poster + facts), clicking a row opens
+  `MovieDetailModal`.
+- `src/components/MovieHoverCard.jsx` — presentational, `pointer-events-none`,
+  `position:fixed`, placed beside the hovered row's bounding rect and
+  clamped into the viewport. Needs `posterPath`/`duration`/`genre`, which
+  is why `MovieSummaryResponse` was widened (see backend).
+- `src/components/MovieDetailModal.jsx` — full record via
+  `GET /movieById/{id}`: backdrop banner + overlapping poster, meta row,
+  genre pills, cast list (sorted by `order`, capped at 12), and a footer
+  with the catalog id (copy button — this is where the id lives now) and a
+  "View on TMDB ↗" external link. Fetches on mount; rendered only while a
+  row is selected.
+- `src/lib/tmdb.js` (`tmdbImage(path,size)`, `formatRuntime`,
+  `releaseYear`, `tmdbMovieUrl`) and `src/lib/movieStatus.js`
+  (`MOVIE_STATUS_STYLES` shared by the three movie components). Both
+  `AddMoviesModal` and the new components use these.
+- Loading states filled in (second review note): `AddMoviesModal` now
+  shows a `LoadingBlock` "Searching TMDB…" in place of the results while a
+  search is in flight, and a `LoadingBlock` "Importing N movies…" under a
+  dimmed results list while the upsert runs (previously only the button
+  label changed). `MoviesPanel` table and `MovieDetailModal` already had
+  `LoadingBlock`s.
+- `pages/AdminDashboard.jsx` — mounts `<MoviesPanel />` under
+  `<TheatersPanel />`; h1 relabelled "Theaters" → "Admin console".
+- `npm run lint` clean on the new files; `npm run build` succeeds.
+- Updated `BACKEND_CONTRACT.md`: rewrote the stale `## Movies` section
+  (was documenting the deleted `POST /api/v1/movies/batch` design) and
+  added the `502` / `BadGatewayException` / `TmdbSyncException` rows.
+
+**Key decisions:**
+- "Admin searches by title" = TMDB search (to find movies to import), a
+  separate concern from the `?title=` filter on the persisted list. Both
+  exist now.
+- 502 (not 422/500) for TMDB failures — it's an upstream dependency
+  failure, not the caller's fault and not our bug.
+- Kept `getPages` mapping in the controller (`movies.map(...::toSummary)`),
+  matching how it was already written.
+
+**Next:**
+- No tests were added for the new `upsertMovies` auth guard, the
+  `getPages` title filter, or the 502 mapping — worth covering, especially
+  the auth guard (exactly the kind of thing that silently regresses).
+- The whole `show` / `showSeat` domain is staged as deleted with no
+  replacement yet — show creation (which is what consumes `movieId`) does
+  not exist on the backend right now.
+- `AddMoviesModal` uses TMDB poster URLs directly (`image.tmdb.org`); fine
+  in the dev app, revisit if a strict CSP ever lands.
+- End-to-end run still pending: backend wasn't running this session
+  (needs Mongo + env vars). Verify: admin logs in → Admin console → Movies
+  → Add movies → search "Inception" → import → row appears with a
+  `movieId` → copy works → `?title=` filter narrows the list.
+- Stale `lib/jwt.js:11` TODO comment and the `CitySelect.jsx`
+  `set-state-in-effect` lint error are both still unfixed (pre-existing).
+
 ### 2026-08-23 — Session 4
 **Built:**
 - Admin dashboard fixes/polish: create-owner form now resets `touched`/

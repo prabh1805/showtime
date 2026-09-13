@@ -44,6 +44,7 @@ has this shape:
 | `409` | any subclass of abstract `ConflictException` | the exception's own message | `null` |
 | `409` | `DataIntegrityViolationException` (DB constraint violation) | `"Data integrity violation"` (fixed string) | `null` |
 | `422` | any subclass of abstract `UnprocessableEntityException` | the exception's own message | `null` |
+| `502` | any subclass of abstract `BadGatewayException` (an upstream dependency we call synchronously failed) | the exception's own message | `null` |
 | `500` | anything else (catch-all `Exception`) | `"Something went wrong"` (fixed string) | `null` |
 
 **Important:** for `401`s specifically, the frontend cannot rely on the message
@@ -75,6 +76,7 @@ Every other status category passes the real exception message through.
 | Unauthorized (401) | `InvalidRefreshTokenException` | `refreshtoken` |
 | | `InvalidUserCredentialsException` | `user` (login failure) |
 | Forbidden (403) | `UnauthorizedTheaterAccessException` | `theaterstaff` |
+| BadGateway (502) | `TmdbSyncException` | `movie` (TMDB search/detail/credits call failed; also carries a numeric `statusCode` internally — not in the JSON) |
 
 ---
 
@@ -188,38 +190,76 @@ Response `200`: Spring Data `Page<TheaterResponse>` — standard envelope (`cont
 
 ## Movies
 
-### `POST /api/v1/movies/batch`
+> **Rewritten (Session 5).** The movie domain was rebuilt around a TMDB
+> import flow — there is no hand-authored "create movie" DTO any more. Admins
+> search TMDB, then import chosen movies by TMDB id; the backend fetches
+> details + credits from TMDB and upserts them. `MongoDB`-backed; ids are
+> string `movieId`s. `MovieStatus`: `SCHEDULABLE | UPCOMING | CANCELLED`
+> (derived from TMDB's `status`: Released → SCHEDULABLE, Planned/In
+> Production/Post Production → UPCOMING, everything else → CANCELLED).
 
-**Auth:** open (`permitAll`).
+### `GET /api/v1/movies/tmdbSearch?query=…`
 
-Bulk-creates movies; partial success is possible (per-item, not all-or-nothing).
+**Auth:** `hasRole('ADMIN')` (`@PreAuthorize`, method security).
 
-Request (`BulkCreateMovieRequest`): `{ "movies": [ CreateMovieRequest, ... ] }` (`@NotEmpty`, `@Valid` cascades to each item)
-
-Each `CreateMovieRequest`:
+Proxies a TMDB title search. Nothing is persisted. Response (`TmdbSearchResponse`):
 ```json
-{
-  "title": "string",                 // @NotBlank
-  "duration": 0,                     // @NotNull (Integer, minutes)
-  "releaseDate": "2026-01-01",       // @NotNull (LocalDate)
-  "availableLanguages": ["string"],  // @NotEmpty
-  "availableFormats": ["TWO_D"],     // @NotEmpty, MovieFormat: TWO_D | THREE_D
-  "genre": ["string"],               // no validation, optional
-  "cast": [ { "characterName": "", "actorName": "" } ]  // no validation, optional
-}
+{ "results": [
+  { "id": 27205, "title": "Inception", "overview": "…",
+    "releaseDate": "2010-07-15", "posterPath": "/xyz.jpg",
+    "backdropPath": "/abc.jpg", "adult": false }
+] }
 ```
+Errors: `401`/`403`; `502` `TmdbSyncException` if TMDB is unreachable or errors.
 
-Response `207 Multi-Status` (`MovieBatchResponse`): `{ "results": [ ... ] }` where each
-item is **one of two shapes** (no discriminator field — distinguish by which keys are present):
+### `POST /api/v1/movies/upsertMovies`
+
+**Auth:** `hasRole('ADMIN')`.
+
+Request: a bare JSON array of TMDB ids — `[27205, 157336]`. Each id is
+processed independently (create or refresh-in-place, keyed on unique
+`tmdbId`); one id failing does not abort the rest.
+
+Response `201` — a JSON array, one entry per input id, **one of two shapes**
+(no discriminator — distinguish by which keys are present; Jackson flattens
+the sealed `MovieBatchItemResult` record):
 ```json
-{ "index": 0, "movieId": "string", "title": "string" }      // success
-{ "index": 0, "errorMessage": "string" }                    // failure
+{ "tmdbId": 27205, "movieId": "665f…", "title": "Inception" }   // success
+{ "tmdbId": 157336, "reason": "TMDB returned an error … 404" }  // failure
 ```
+Errors: `401`/`403`. Per-id failures are `reason` entries in the `201` body,
+not a top-level error status. (An empty array is accepted and returns `[]`.)
 
-Errors: `400` if the *outer* request fails validation (e.g. empty `movies` array or a malformed item shape) — per-item business failures (e.g. duplicate movie) surface as `errorMessage` entries inside the `207`, not as a top-level error status.
+### `GET /api/v1/movies/getPages?title=&page=&size=&sort=`
 
-> No `GET` endpoints exist for movies (no list, no get-by-id) — `movieId` and
-> `movieTitle` only surface today embedded in `ShowResponse`.
+**Auth:** `hasRole('ADMIN')`. Standard Spring `Pageable` (`sort=title,asc`).
+`title` is an optional case-insensitive substring filter (regex-quoted
+server-side). Page of `MovieSummaryResponse`:
+```json
+{ "movieId": "string", "title": "string", "releaseDate": "2010-07-15",
+  "status": "SCHEDULABLE", "duration": 148, "genre": ["Action"],
+  "posterPath": "/xyz.jpg" }
+```
+This is the list whose `movieId` is used when a show is scheduled.
+(`getForStaff` returns the same shape.)
+
+### `GET /api/v1/movies/movieById/{id}`
+
+**Auth:** `hasRole('ADMIN')`. Returns `MovieDetailResponse` (`movieId`,
+`tmdbId`, `title`, `status`, `releaseDate`, `duration`, `genre[]`,
+`cast[] {name, character, order}`, `posterPath`, `backdropPath`). `404`
+`MovieNotFoundException` if unknown.
+
+### `GET /api/v1/movies/getForUser?title=&genre=`
+
+**Auth:** open (GET under `/api/v1/**` is `permitAll`). Public catalog —
+returns only `SCHEDULABLE` movies as `MovieCatalogResponse` (no ids).
+
+### `GET /api/v1/movies/getForStaff?title=&status=`
+
+**Auth:** `hasRole('STAFF') or hasRole('OWNER')`. Returns
+`MovieSummaryResponse[]` (has `movieId`) — the staff/owner equivalent of the
+admin catalog, for picking a movie when creating a show.
 
 ---
 

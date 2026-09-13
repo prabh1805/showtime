@@ -1,98 +1,65 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import AppHeader from "../components/AppHeader";
-import FormError from "../components/FormError";
-import ScreensManager from "../components/ScreensManager";
+import Button from "../components/Button";
+import AddStaffModal from "../components/AddStaffModal";
+import TheaterScreensView from "../components/TheaterScreensView";
 import { LoadingBlock } from "../components/Spinner";
-import { useAuth } from "../context/useAuth";
-import { getMyTheaters } from "../api/theaters";
-import { ApiError } from "../api/client";
+
+// Lazy: pulls in Recharts, which only Owners viewing analytics ever need —
+// keeps that weight out of every other role's bundle.
+const AnalyticsPanel = lazy(() => import("../components/AnalyticsPanel"));
 
 /**
- * Owner dashboard: lists the theater(s) the logged-in Owner (or active
- * Staff member) manages, and lets them manage the selected theater's
- * Screens and seat maps via `ScreensManager`. Auto-selects when there's
- * exactly one theater (today's common case — Admin's create-owner flow
- * always creates exactly one theater per new owner).
+ * Owner dashboard: theater(s) the logged-in Owner manages
+ * (`TheaterScreensView`, shared with `StaffDashboard`), plus Owner-only
+ * actions for whichever theater is currently selected — "Add staff" and
+ * revenue/shows `AnalyticsPanel`.
  */
 export default function OwnerDashboard() {
-  const auth = useAuth();
-  const [theaters, setTheaters] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selectedTheaterId, setSelectedTheaterId] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const result = await getMyTheaters(auth.accessToken);
-        if (!cancelled) {
-          setTheaters(result);
-          if (result.length > 0) setSelectedTheaterId(result[0].id);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof ApiError && err.body?.message
-              ? err.body.message
-              : "Couldn't load your theaters.",
-          );
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [auth.accessToken]);
+  const [selectedTheater, setSelectedTheater] = useState(null);
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-paper">
       <AppHeader />
 
       <div className="flex w-full flex-col items-center gap-6 px-6 py-8">
-        {loading ? (
-          <LoadingBlock label="Loading your theaters…" />
-        ) : error ? (
-          <div className="w-full max-w-5xl">
-            <FormError message={error} />
+        <div className="flex w-full max-w-5xl flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-wide text-ink">
+              Owner dashboard
+            </h1>
+            <p className="mt-1 text-sm text-mist">
+              Manage your theater's screens, seats, staff, and shows.
+            </p>
           </div>
-        ) : theaters.length === 0 ? (
-          <p className="max-w-sm text-center text-mist">
-            No theater is assigned to your account yet. Contact an admin if
-            you believe this is a mistake.
-          </p>
-        ) : (
-          <>
-            {theaters.length > 1 && (
-              <div className="flex w-full max-w-5xl flex-wrap gap-2">
-                {theaters.map((theater) => (
-                  <button
-                    key={theater.id}
-                    type="button"
-                    onClick={() => setSelectedTheaterId(theater.id)}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-                      theater.id === selectedTheaterId
-                        ? "border-velvet bg-velvet text-paper"
-                        : "border-hairline text-ink hover:border-velvet hover:text-velvet"
-                    }`}
-                  >
-                    {theater.name} · {theater.city}
-                  </button>
-                ))}
-              </div>
-            )}
+          {selectedTheater && (
+            <Button
+              type="button"
+              onClick={() => setIsAddStaffOpen(true)}
+              className="w-auto px-4 py-2 text-sm sm:px-4 sm:py-2 sm:text-sm"
+            >
+              Add staff
+            </Button>
+          )}
+        </div>
 
-            {selectedTheaterId && (
-              <ScreensManager theaterId={selectedTheaterId} />
-            )}
-          </>
+        {selectedTheater && (
+          <Suspense fallback={<LoadingBlock label="Loading analytics…" />}>
+            <AnalyticsPanel theaterId={selectedTheater.id} />
+          </Suspense>
         )}
+
+        <TheaterScreensView onTheaterChange={setSelectedTheater} />
       </div>
+
+      {selectedTheater && (
+        <AddStaffModal
+          theaterId={selectedTheater.id}
+          open={isAddStaffOpen}
+          onClose={() => setIsAddStaffOpen(false)}
+        />
+      )}
     </main>
   );
 }

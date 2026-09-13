@@ -1,20 +1,28 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
+import Button from "../components/Button";
 import { useAuth } from "../context/useAuth";
 
 /**
- * Customer dashboard — WIP. This is where the real show-discovery
- * homepage will eventually live; for now it just confirms the
- * register/login/role-routing flow works end to end.
+ * Customer dashboard — no show-discovery UI exists yet (no backend endpoint
+ * to browse shows by movie/city), so this is a stopgap: enter a known show
+ * id directly to jump to its seat map. Real discovery is future work.
  */
 export default function CustomerDashboard() {
   const navigate = useNavigate();
   const auth = useAuth();
+  const [showId, setShowId] = useState("");
 
   /** Logs out and returns to the login page. */
   function handleLogout() {
     auth.logout();
     navigate("/login");
+  }
+
+  function handleFindSeats(e) {
+    e.preventDefault();
+    if (showId.trim()) navigate(`/shows/${showId.trim()}/book`);
   }
 
   return (
@@ -25,10 +33,28 @@ export default function CustomerDashboard() {
           Welcome — coming soon
         </h1>
         <p className="mt-2 max-w-sm text-mist">
-          Show discovery and booking will live here. For now, this confirms
-          you're logged in as a customer.
+          Show discovery is still being built. If you already know a show's
+          id, you can jump straight to booking it below.
         </p>
       </div>
+
+      <form
+        onSubmit={handleFindSeats}
+        className="flex w-full max-w-xs items-center gap-2"
+      >
+        <input
+          type="text"
+          inputMode="numeric"
+          value={showId}
+          onChange={(e) => setShowId(e.target.value)}
+          placeholder="Show ID"
+          className="w-full rounded-md border border-hairline bg-surface px-4 py-2.5 text-base text-ink placeholder:text-mist focus:border-velvet focus:outline-none focus:ring-1 focus:ring-velvet"
+        />
+        <Button type="submit" disabled={!showId.trim()} className="w-auto shrink-0">
+          Go
+        </Button>
+      </form>
+
       <button
         type="button"
         onClick={handleLogout}

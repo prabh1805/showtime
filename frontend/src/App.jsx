@@ -7,6 +7,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
+import BookShow from "./pages/BookShow";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -45,6 +46,14 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["CUSTOMER"]}>
             <CustomerDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/shows/:showId/book"
+        element={
+          <ProtectedRoute allowedRoles={["CUSTOMER"]}>
+            <BookShow />
           </ProtectedRoute>
         }
       />

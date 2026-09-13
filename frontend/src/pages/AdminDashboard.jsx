@@ -6,6 +6,7 @@ import Button from "../components/Button";
 import FormError from "../components/FormError";
 import Modal from "../components/Modal";
 import TheatersPanel from "../components/TheatersPanel";
+import MoviesPanel from "../components/MoviesPanel";
 import { useAuth } from "../context/useAuth";
 import { createOwner } from "../api/admin";
 import { ApiError } from "../api/client";
@@ -176,10 +177,10 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="font-display text-2xl font-bold tracking-wide text-ink">
-                Theaters
+                Admin console
               </h1>
               <p className="mt-1 text-sm text-mist">
-                Provision theater Owners and their first theater.
+                Provision theater Owners and curate the movie catalog.
               </p>
             </div>
             <Button type="button" onClick={openModal} className="sm:w-auto">
@@ -311,6 +312,8 @@ export default function AdminDashboard() {
         </Modal>
 
         <TheatersPanel refreshKey={theatersRefreshKey} />
+
+        <MoviesPanel />
       </div>
     </main>
   );
