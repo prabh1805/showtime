@@ -1,4 +1,4 @@
-export const API_BASE_URL = "http://localhost:8081";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
 
 /**
  * Structured error thrown by `apiFetch` for any non-2xx response, so callers

@@ -1,0 +1,69 @@
+# Copy this file to application.properties (same directory) and fill in real
+# values. application.properties is gitignored — never commit real secrets.
+
+spring.application.name=showtime
+server.port=8081
+
+# --- PostgreSQL (users, theaters, screens, seats, shows, bookings) ---
+spring.datasource.url=${DB_URL}
+# e.g. jdbc:postgresql://localhost:5432/showtime
+spring.datasource.username=${DB_USER}
+spring.datasource.password=${DB_PASSWORD}
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.open-in-view=false
+spring.jpa.defer-datasource-initialization=true
+spring.sql.init.mode=always
+spring.jpa.properties.hibernate.jdbc.batch_size=50
+spring.jpa.properties.hibernate.order_inserts=true
+
+spring.data.web.pageable.default-page-size=20
+spring.data.web.pageable.max-page-size=100
+
+logging.level.root=DEBUG
+
+# --- MongoDB (movie catalog) ---
+spring.data.mongodb.uri=${MONGO_URI}
+# e.g. mongodb://localhost:27017/showtime
+
+# --- JWT auth ---
+jwt.secret=${JWT_SECRET}
+# Any long random string, e.g. `openssl rand -base64 32`
+jwt.expiration=3600000
+refresh.token.expiration=1209600000
+
+# --- CORS --- (comma-separated if you need more than one, e.g. local dev + deployed frontend)
+cors.allowed-origin=${CORS_ALLOWED_ORIGIN:http://localhost:5173}
+
+# --- TMDB (movie import) — https://www.themoviedb.org/settings/api ---
+tmdb.api.read.access.token=${TMDB_API_READ_ACCESS_TOKEN}
+tmdb.base.url=https://api.themoviedb.org/3
+
+# Fail fast when TMDB is unreachable instead of hanging the request thread.
+spring.http.client.connect-timeout=5s
+spring.http.client.read-timeout=10s
+
+# --- Redis (seat-map read cache) ---
+spring.data.redis.host=${REDIS_HOST}
+spring.data.redis.port=${REDIS_PORT}
+spring.data.redis.username=${REDIS_USERNAME}
+spring.data.redis.password=${REDIS_PASSWORD}
+
+# --- Razorpay (payments) — https://dashboard.razorpay.com/app/keys ---
+razorpay.api.key=${RAZORPAY_API_KEY}
+razorpay.api.secret=${RAZORPAY_API_SECRET}
+
+# Set from Razorpay Dashboard > Settings > Webhooks after registering
+# POST /api/v1/bookings/webhook/razorpay there and enabling the payment.captured / payment.failed events.
+razorpay.webhook.secret=${RAZORPAY_WEBHOOK_SECRET}
+
+# How long a seat lock / booking stays valid before it expires, in milliseconds.
+booking.hold.expiration=600000
+
+# How often the reaper checks for expired INITIATED bookings and releases their seats, in milliseconds.
+booking.reaper.interval=30000
+
+# TTL for the cached show-seat map, in seconds. Short-lived since it must reflect live lock/booking state.
+showseat.cache.ttl-seconds=5

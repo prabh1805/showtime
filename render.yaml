@@ -1,0 +1,47 @@
+databases:
+  - name: showtime-db
+    plan: free
+    databaseName: showtime
+    user: showtime
+
+services:
+  - type: web
+    name: showtime-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/v1/theaters
+    envVars:
+      # Render's Postgres only exposes a postgres:// URI, not the jdbc:postgresql://
+      # form Spring needs — set these three manually from the showtime-db "Info" tab
+      # (Host/Port/Database -> DB_URL as jdbc:postgresql://<Host>:<Port>/<Database>;
+      # User/Password -> DB_USER/DB_PASSWORD as-is).
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TMDB_API_READ_ACCESS_TOKEN
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_USERNAME
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: RAZORPAY_API_KEY
+        sync: false
+      - key: RAZORPAY_API_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: CORS_ALLOWED_ORIGIN
+        sync: false
