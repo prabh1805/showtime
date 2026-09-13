@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +19,7 @@ import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
@@ -32,7 +34,13 @@ public class SecurityConfig {
                                 "/api/v1/users/login",
                                 "/api/v1/users/refresh"
                         ).permitAll()
+                        // Razorpay calls this server-to-server with its own signature, not a user JWT
+                        .requestMatchers(HttpMethod.POST, "/api/v1/bookings/webhook/razorpay").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").hasRole("ADMIN")
+                        // Booking details carry payment/ownership info — never public, even for GET
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bookings/**").authenticated()
+                        // Revenue/analytics is theater-owner business data — never public, even for GET
+                        .requestMatchers(HttpMethod.GET, "/api/v1/theaters/*/analytics").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
 
                         // Admin-only — coarse role check is sufficient, no per-resource context needed

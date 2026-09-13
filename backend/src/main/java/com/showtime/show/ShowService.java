@@ -1,14 +1,14 @@
 package com.showtime.show;
 
 import com.showtime.movie.Movie;
-import com.showtime.movie.MovieFormat;
 import com.showtime.movie.MovieService;
-import com.showtime.movie.MovieStatus;
 import com.showtime.screen.Screen;
 import com.showtime.screen.ScreenService;
+import com.showtime.showSeat.ShowSeat;
+import com.showtime.showSeat.ShowSeatService;
+import com.showtime.theater.TheaterService;
+import com.showtime.theaterstaff.TheaterStaffService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,59 +17,86 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ShowService {
+    private final ScreenService screenService;
     private final MovieService movieService;
-    private final ScreenService  screenService;
     private final ShowRepository showRepository;
-    private final ShowMapper showMapper;
-    private final ApplicationEventPublisher applicationEventPublisher;
+    private final ShowSeatService showSeatService;
+    private final TheaterStaffService theaterStaffService;
+    private final TheaterService theaterService;
 
     @Transactional
-    public ShowResponse create(CreateShowRequest request) {
-        Movie movie = movieService.getEntityById(request.getMovieId());
-        Screen screen = screenService.getEntityById(request.getScreenId());
-
-
-        if(movie.getStatus() == MovieStatus.ARCHIVED) {
-            throw new MovieArchivedException(movie);
-        }
-
-        List<MovieFormat> availableFormats = movie.getAvailableFormats();
-        if(!availableFormats.contains(request.getFormat())) {
-            throw new InvalidShowFormatException(movie, request.getFormat());
-        }
-
-        List<String> availableLanguages = movie.getAvailableLanguages();
-        if(!availableLanguages.contains(request.getLanguage())) {
-            throw new InvalidShowLanguageException(movie, request.getLanguage());
-        }
-
-        LocalDateTime endTime = request.getStartTime().plusMinutes(
-                movie.getDuration() + request.getIntervalMinutes() + screen.getBufferMinutes()
+    public ShowResponse createShow(CreateShowRequest createShowRequest) {
+        Screen screen = screenService.getEntityById(createShowRequest.getScreenId());
+        theaterStaffService.assertCallerCanManage(screen.getTheater(), "create shows for");
+        Movie movie = movieService.getEntityById(createShowRequest.getMovieId());
+        LocalDateTime endTime = createShowRequest.getShowTime().plusSeconds(movie.getDuration()).plusMinutes(screen.getBufferMinutes());
+        boolean showOverlap = showRepository.existsOverlappingShow(
+                createShowRequest.getScreenId(),
+                createShowRequest.getShowTime(),
+                endTime,
+                ShowStatus.SCHEDULED
         );
-
-
-        List<Show> overlappingShows = showRepository.findOverlappingShows(
-                screen.getId(),
-                request.getStartTime(),
-                endTime
-        );
-        if(!overlappingShows.isEmpty()) {
-            throw new ShowOverlapException(request.getStartTime(), endTime, screen);
+        if(showOverlap) {
+            throw new ShowOverlapException(
+                    "Show already exists at time range from "
+                    + createShowRequest.getShowTime()
+                    + " to "
+                    + endTime
+            );
         }
-
-        Show show = showMapper.toEntity(request);
-        show.setScreen(screen);
+        Show show = new Show();
+        show.setFormat(createShowRequest.getFormat());
+        show.setLanguage(createShowRequest.getLanguage());
+        show.setMovieId(createShowRequest.getMovieId());
+        show.setCategoryPricing(createShowRequest.getCategoryPricing());
         show.setEndTime(endTime);
+        show.setScreen(screen);
+        show.setShowTime(createShowRequest.getShowTime());
+        Show insertedShow = showRepository.save(show);
 
-        Show showResult = showRepository.save(show);
-        applicationEventPublisher.publishEvent(new ShowCreatedEvent(showResult.getId()));
-        log.info("Show created successfully with ID: {}", showResult.getId());
-        return showMapper.toResponse(showResult, movie, screen);
+        List<ShowSeat> showSeats = showSeatService.createShowSeats(insertedShow, createShowRequest.getScreenId());
+
+        ShowResponse showResponse = mapToResponse(insertedShow, movie);
+        showResponse.setTotalSeatsCreated(showSeats.size());
+        return showResponse;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShowResponse> listShowsByScreen(Long screenId) {
+        screenService.getEntityById(screenId);
+        List<Show> shows = showRepository.findAllByScreenIdOrderByShowTimeAsc(screenId);
+        return shows.stream()
+                .map(show -> mapToResponse(show, movieService.getEntityById(show.getMovieId())))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShowResponse> listShowsByTheater(Long theaterId) {
+        theaterService.getEntityById(theaterId);
+        List<Show> shows = showRepository.findAllByScreen_Theater_IdOrderByShowTimeAsc(theaterId);
+        return shows.stream()
+                .map(show -> mapToResponse(show, movieService.getEntityById(show.getMovieId())))
+                .toList();
     }
 
     public Show getEntityById(Long id) {
-        return showRepository.findById(id).orElseThrow(() -> new ShowNotFoundException(id));
+        return showRepository.findById(id)
+                .orElseThrow(() -> new ShowNotFoundException(id));
+    }
+
+    private ShowResponse mapToResponse(Show show, Movie movie) {
+        ShowResponse showResponse = new ShowResponse();
+        showResponse.setId(show.getId());
+        showResponse.setMovieId(show.getMovieId());
+        showResponse.setMovieName(movie.getTitle());
+        showResponse.setScreenId(show.getScreen().getId());
+        showResponse.setScreenName(show.getScreen().getName());
+        showResponse.setShowTime(show.getShowTime());
+        showResponse.setEndTime(show.getEndTime());
+        showResponse.setLanguage(show.getLanguage());
+        showResponse.setFormat(show.getFormat());
+        showResponse.setStatus(show.getStatus());
+        return showResponse;
     }
 }

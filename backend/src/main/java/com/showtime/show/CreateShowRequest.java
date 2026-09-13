@@ -1,35 +1,35 @@
 package com.showtime.show;
 
-
-import com.showtime.movie.MovieFormat;
-import jakarta.validation.constraints.*;
+import com.showtime.seat.SeatType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
-@NoArgsConstructor
 public class CreateShowRequest {
 
-    @NotBlank(message = "Movie ID cannot be blank")
+    @NotBlank(message = "movieId is required")
     private String movieId;
 
-    @NotNull(message = "Screen ID cannot be null")
+    @NotNull(message = "screenId is required")
     private Long screenId;
 
-    @NotNull(message = "Start time cannot be null")
-    private LocalDateTime startTime;
+    @NotNull(message = "showTime is required")
+    private LocalDateTime showTime;
 
-    @NotBlank(message = "Language cannot be blank")
+    @NotBlank(message = "language is required")
     private String language;
 
-    @NotNull(message = "Format cannot be null")
-    private MovieFormat format;
+    @NotNull(message = "format is required")
+    private ShowFormat format;
 
-    @NotNull(message = "Interval minutes cannot be null")
-    @PositiveOrZero(message = "Interval minutes must be zero or positive")
-    private Integer intervalMinutes;
+    @NotEmpty(message = "categoryPricing must not be empty")
+    private Map<SeatType, BigDecimal> categoryPricing;
 }

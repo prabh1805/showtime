@@ -120,6 +120,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(er);
     }
 
+    @ExceptionHandler(BadGatewayException.class)
+    public ResponseEntity<ErrorResponse> handleBadGateway(BadGatewayException ex) {
+        log.warn("Upstream dependency failed: {}", ex.getMessage());
+        ErrorResponse er = new ErrorResponse(
+                HttpStatus.BAD_GATEWAY.value(),
+                ex.getMessage(),
+                null,
+                Instant.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(er);
+    }
+
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException ex) {
         log.warn("Forbidden: {}", ex.getMessage());

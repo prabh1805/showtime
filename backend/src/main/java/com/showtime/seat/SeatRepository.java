@@ -10,4 +10,5 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     Page<Seat> findByScreenId(Long screenId, Pageable pageable);
     boolean existsByScreenIdAndRowAndNumber(Long screenId, String row, Integer number);
     List<Seat> findAllByScreenId(Long screenId);
+    List<Seat> findAllByScreenIdAndStatus(Long screenId, SeatStatus status);
 }

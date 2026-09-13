@@ -2,6 +2,6 @@ package com.showtime.showSeat;
 
 public enum ShowSeatStatus {
     AVAILABLE,
-    HELD,
+    LOCKED,
     BOOKED
 }

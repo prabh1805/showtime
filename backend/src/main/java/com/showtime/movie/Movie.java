@@ -5,13 +5,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @Document(collection= "movies")
-@CompoundIndex(name = "uk_title_releaseDate", def = "{'title': 1, 'releaseDate': 1}", unique = true)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,8 +22,10 @@ public class Movie {
     private int duration;
     private List<Cast> cast;
     private List<String> genre;
-    private List<String> availableLanguages;
-    private List<MovieFormat> availableFormats;
-    private MovieStatus status =  MovieStatus.AVAILABLE;
+    private String posterPath;
+    private String backdropPath;
+    private MovieStatus status;
     private LocalDate releaseDate;
+    @Indexed(unique = true)
+    private String tmdbId;
 }

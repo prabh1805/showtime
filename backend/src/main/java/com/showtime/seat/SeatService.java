@@ -92,6 +92,11 @@ public class SeatService {
                 .orElseThrow(() -> new SeatNotFoundException(id));
     }
 
+    public List<Seat> getSeatsByScreenIdAndStatus(Long screenId, SeatStatus status) {
+        Screen screen = screenService.getEntityById(screenId);
+        return seatRepository.findAllByScreenIdAndStatus(screenId, status);
+    }
+
     private SeatResponse mapToResponse(Seat seat) {
         SeatResponse response = new SeatResponse();
         response.setId(seat.getId());

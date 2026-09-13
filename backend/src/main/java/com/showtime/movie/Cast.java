@@ -8,7 +8,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class Cast {
-    private String characterName;
-    private String actorName;
-
+    private String name;
+    private String character;
+    private int order;
 }

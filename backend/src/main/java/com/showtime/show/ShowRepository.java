@@ -8,14 +8,26 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ShowRepository extends JpaRepository<Show, Long> {
-    @Query(
-            "SELECT s FROM Show s WHERE s.screen.id = :screenId " +
-            "AND s.startTime < :proposedEndTime " + " AND s.endTime > :proposedStartTime"
 
-    )
-    List<Show> findOverlappingShows(
+    List<Show> findAllByScreenIdOrderByShowTimeAsc(Long screenId);
+
+    List<Show> findAllByScreen_Theater_IdOrderByShowTimeAsc(Long theaterId);
+
+    List<Show> findAllByScreen_Theater_IdAndShowTimeBetween(
+            Long theaterId, LocalDateTime showTimeFrom, LocalDateTime showTimeTo);
+
+    @Query("""
+    SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END
+    FROM Show s
+    WHERE s.screen.id = :screenId
+    AND s.status = :status
+    AND s.showTime < :endTime
+    AND :showTime < s.endTime
+    """)
+    boolean existsOverlappingShow(
             @Param("screenId") Long screenId,
-            @Param("proposedStartTime") LocalDateTime proposedStartTime,
-            @Param("proposedEndTime") LocalDateTime proposedEndTime
+            @Param("showTime") LocalDateTime showTime,
+            @Param("endTime") LocalDateTime endTime,
+            @Param("status") ShowStatus status
     );
 }
