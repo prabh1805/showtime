@@ -43,3 +43,19 @@ export function refresh(refreshToken) {
     body: JSON.stringify({ refreshToken }),
   });
 }
+
+/**
+ * POST /api/v1/users/logout — revokes the refresh token server-side so it
+ * can't be used to mint new access tokens. Public: the refresh token in the
+ * body is the credential, since the access token may already be expired.
+ *
+ * @param {string} refreshToken
+ * @returns {Promise<null>} 204 No Content.
+ * @throws {import("./client").ApiError} 400 (validation).
+ */
+export function logout(refreshToken) {
+  return apiFetch("/api/v1/users/logout", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+  });
+}

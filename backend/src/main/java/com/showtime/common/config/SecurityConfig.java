@@ -33,7 +33,10 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/users/register",
                                 "/api/v1/users/login",
-                                "/api/v1/users/refresh"
+                                "/api/v1/users/refresh",
+                                // The refresh token in the body is the credential; the access
+                                // token may already be expired by the time the user logs out
+                                "/api/v1/users/logout"
                         ).permitAll()
                         // Razorpay calls this server-to-server with its own signature, not a user JWT
                         .requestMatchers(HttpMethod.POST, "/api/v1/bookings/webhook/razorpay").permitAll()

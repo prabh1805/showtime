@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { refresh } from "../api/auth";
 import { decodeJwt } from "../lib/jwt";
-import { login as loginRequest } from "../api/auth";
+import { login as loginRequest, logout as logoutRequest } from "../api/auth";
 import { getMe } from "../api/users";
 import { AuthContext } from "./AuthContextValue";
 import { ApiError } from "../api/client";
@@ -94,7 +94,18 @@ export function AuthProvider({ children }) {
     return { role: payload.role, userId: payload.sub };
   }
 
+  /**
+   * Revokes the refresh token on the backend, then clears local session
+   * state. The revoke call is fire-and-forget: a network failure must never
+   * leave the user stuck "logged in" on this device.
+   */
   function logout() {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (refreshToken) {
+      logoutRequest(refreshToken).catch((error) => {
+        console.error("Error revoking refresh token:", error);
+      });
+    }
     setAccessToken(null);
     setRole(null);
     setUserId(null);

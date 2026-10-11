@@ -37,13 +37,9 @@ public class UserService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        System.out.println("Email received: [" + request.getEmail() + "]");
-        System.out.println("Password received: [" + request.getPassword() + "]");
-
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new InvalidUserCredentialsException(request.getEmail()));
 
-        System.out.println("Hash from DB: [" + user.getPasswordHash() + "]");
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new InvalidUserCredentialsException(request.getEmail());
         }
